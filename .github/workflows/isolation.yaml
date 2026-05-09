@@ -1,0 +1,24 @@
+name: isolation
+
+# Dedicated, blocking workflow that enforces license-isolation
+# invariant 2 (process boundary, no GPL linkage or symbols in the
+# shim).  Runs the same checks ci.yaml runs but in isolation, so a
+# failure here is unambiguous about *what* failed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shim_isolation:
+    name: shim has no GPL linkage or symbols
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release shim
+        run: cargo build --release -p wavecrux-sigrok-bridge-shim
+      - name: Run verify_isolation.sh
+        run: bash tool/verify_isolation.sh

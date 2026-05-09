@@ -1,0 +1,73 @@
+wavecrux-sigrok-bridge — third-party attributions
+==================================================
+
+This repository is GPLv3+. The notice below records the third-party
+projects whose code or runtime this plugin depends on.
+
+
+libsigrokdecode
+---------------
+The bridge subprocess links libsigrokdecode at runtime and exposes its
+protocol decoder set through WaveCrux. libsigrokdecode is part of the
+SigRok project at <https://sigrok.org> and is licensed under the GNU
+General Public License, version 3 or later.
+
+The libsigrokdecode source and its protocol decoder corpus are
+maintained by the SigRok project. WaveCrux is not affiliated with
+SigRok and the use of "SigRok" in this project's name is purely
+descriptive — it identifies the upstream protocol decoder ecosystem
+this bridge integrates.
+
+  Copyright (C) 2010-2025 The SigRok contributors
+
+
+Python
+------
+The bridge subprocess embeds CPython at runtime to run the Python
+protocol decoders shipped with libsigrokdecode. Python is distributed
+under the Python Software Foundation License, Version 2 (PSF-2.0),
+which is GPLv3-compatible.
+
+  Copyright (c) 2001-2025 Python Software Foundation. All rights reserved.
+
+The release archive on Windows ships the official Python embeddable
+distribution from <https://python.org>. On Linux and macOS the bridge
+links against the system or user-installed Python 3.10+.
+
+
+Rust crates
+-----------
+The shim, bridge, and ipc crates depend on a small set of permissively
+licensed Rust crates. Their licenses are MIT or Apache-2.0 except where
+noted; see each crate's own LICENSE for the canonical text.
+
+  serde         — MIT or Apache-2.0
+  serde_json    — MIT or Apache-2.0
+  thiserror     — MIT or Apache-2.0
+  anyhow        — MIT or Apache-2.0
+  byteorder     — Unlicense or MIT
+  log           — MIT or Apache-2.0
+  env_logger    — MIT or Apache-2.0
+  clap          — MIT or Apache-2.0
+  bindgen       — BSD-3-Clause (build-time only)
+  pyo3          — MIT or Apache-2.0 (bridge crate, sigrok feature only)
+
+
+WaveCrux C ABI header
+---------------------
+The shim crate vendors a copy of `wavecrux_decoder.h` from the WaveCrux
+open-core repository (`wavecrux/include/wavecrux_decoder.h`). That header
+will become Apache-2.0 when the WaveCrux open-core repository transitions
+out of public beta; until then it is shipped under WaveCrux's pre-release
+license. Either license is compatible with this repo's GPLv3+ for the
+purpose of providing the C ABI binding contract.
+
+
+Trademark notice
+----------------
+"SigRok" is a name used by the SigRok project at sigrok.org. WaveCrux is
+not affiliated with, endorsed by, or sponsored by the SigRok project.
+"WaveCrux" is a trademark of Ferrite Engineering. This bridge is not
+distributed by Ferrite Engineering as a built-in feature of WaveCrux —
+it is an independent, GPLv3+ plugin that any WaveCrux user can choose
+to install.

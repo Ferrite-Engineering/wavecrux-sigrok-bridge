@@ -1,0 +1,17 @@
+{
+  "decoder_id": "sigrok.pwm",
+  "transactions": [
+    {
+      "end_fs": 5000000000,
+      "is_error": false,
+      "label": "duty=25.0%",
+      "start_fs": 0
+    },
+    {
+      "end_fs": 10000000000,
+      "is_error": false,
+      "label": "duty=75.0%",
+      "start_fs": 5000000000
+    }
+  ]
+}

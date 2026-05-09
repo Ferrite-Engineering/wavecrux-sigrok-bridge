@@ -1,0 +1,23 @@
+{
+  "decoder_id": "sigrok.onewire",
+  "transactions": [
+    {
+      "end_fs": 480100000,
+      "is_error": false,
+      "label": "RESET / Presence",
+      "start_fs": 100000
+    },
+    {
+      "end_fs": 540100000,
+      "is_error": false,
+      "label": "READ ROM (0x33)",
+      "start_fs": 480100000
+    },
+    {
+      "end_fs": 1020100000,
+      "is_error": false,
+      "label": "ROM 0x28 0xFF 0x46 0x9D 0x01 0x16 0x03 0xC2",
+      "start_fs": 540100000
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wavecrux.com/schemas/sigrok-bridge-ipc.json",
+  "title": "WaveCrux SigRok bridge IPC",
+  "description": "Wire-format schema for the JSON-IPC channel between the WaveCrux SigRok bridge shim and its subprocess. Matches the Rust types in crates/ipc/src/schema.rs.",
+  "oneOf": [
+    {
+      "$comment": "Request envelope (shim → subprocess).",
+      "type": "object",
+      "required": ["kind", "id", "op"],
+      "properties": {
+        "kind": { "const": "request" },
+        "id": { "type": "integer", "minimum": 0 },
+        "op": {
+          "type": "string",
+          "enum": [
+            "list_decoders",
+            "create_session",
+            "feed",
+            "finalize",
+            "destroy",
+            "shutdown"
+          ]
+        },
+        "body": { }
+      }
+    },
+    {
+      "$comment": "Response envelope (subprocess → shim).",
+      "type": "object",
+      "required": ["kind", "id", "status"],
+      "properties": {
+        "kind": { "const": "response" },
+        "id": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string", "enum": ["ok", "err"] },
+        "body": { },
+        "code": {
+          "type": "string",
+          "enum": [
+            "unknown_decoder",
+            "unknown_session",
+            "session_init_failed",
+            "decoder_failed",
+            "internal",
+            "bad_request"
+          ]
+        },
+        "message": { "type": "string" }
+      }
+    },
+    {
+      "$comment": "Event envelope (subprocess → shim, unsolicited).",
+      "type": "object",
+      "required": ["kind", "event"],
+      "properties": {
+        "kind": { "const": "event" },
+        "event": {
+          "type": "string",
+          "enum": ["annotation", "log"]
+        },
+        "body": { }
+      }
+    }
+  ]
+}

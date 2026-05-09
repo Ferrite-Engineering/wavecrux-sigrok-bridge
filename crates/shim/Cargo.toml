@@ -1,0 +1,29 @@
+[package]
+name = "wavecrux-sigrok-bridge-shim"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Phase 4.1 plugin: a thin C-ABI shim that spawns the WaveCrux SigRok bridge subprocess and forwards JSON-IPC."
+
+[lib]
+name = "wavecrux_sigrok_bridge"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wavecrux-sigrok-bridge-ipc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+# This crate is the WaveCrux-side plugin and must NEVER take a
+# dependency that pulls in libsigrokdecode, libpython, or any other
+# GPL native library. The CI isolation gate enforces this with nm/ldd
+# checks; do not relax that gate.

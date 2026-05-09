@@ -1,0 +1,35 @@
+{
+  "decoder_id": "sigrok.dmx512",
+  "transactions": [
+    {
+      "end_fs": 88000000,
+      "is_error": false,
+      "label": "BREAK",
+      "start_fs": 0
+    },
+    {
+      "end_fs": 96000000,
+      "is_error": false,
+      "label": "MAB",
+      "start_fs": 88000000
+    },
+    {
+      "end_fs": 140000000,
+      "is_error": false,
+      "label": "Slot 0 = 0x00 (start code)",
+      "start_fs": 96000000
+    },
+    {
+      "end_fs": 184000000,
+      "is_error": false,
+      "label": "Slot 1 = 0xFF",
+      "start_fs": 140000000
+    },
+    {
+      "end_fs": 228000000,
+      "is_error": false,
+      "label": "Slot 2 = 0x80",
+      "start_fs": 184000000
+    }
+  ]
+}

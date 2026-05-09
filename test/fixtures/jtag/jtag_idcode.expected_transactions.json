@@ -1,0 +1,23 @@
+{
+  "decoder_id": "sigrok.jtag",
+  "transactions": [
+    {
+      "end_fs": 1000000000,
+      "is_error": false,
+      "label": "TEST-LOGIC-RESET",
+      "start_fs": 0
+    },
+    {
+      "end_fs": 2000000000,
+      "is_error": false,
+      "label": "IR=0x09 IDCODE",
+      "start_fs": 1000000000
+    },
+    {
+      "end_fs": 3000000000,
+      "is_error": false,
+      "label": "DR=0x1234ABCD",
+      "start_fs": 2000000000
+    }
+  ]
+}

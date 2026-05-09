@@ -1,0 +1,90 @@
+name: release
+
+# Build per-OS+arch release archives and upload them to a GitHub
+# Release on tag push.
+#
+# The release archive contains:
+#   - libwavecrux_sigrok_bridge.{so,dylib,dll}  (the shim)
+#   - wavecrux-sigrok-bridge[.exe]              (the subprocess)
+#   - README.md, LICENSE, INSTALL.md
+#   - SHA256SUMS
+#
+# Tag scheme: v-MAJOR.MINOR.PATCH (matches Cargo.toml).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.target.os }} ${{ matrix.target.arch }})
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { os: linux,   arch: x86_64,  runner: ubuntu-latest, triple: x86_64-unknown-linux-gnu }
+          - { os: linux,   arch: aarch64, runner: ubuntu-latest, triple: aarch64-unknown-linux-gnu }
+          - { os: macos,   arch: x86_64,  runner: macos-13,      triple: x86_64-apple-darwin }
+          - { os: macos,   arch: arm64,   runner: macos-14,      triple: aarch64-apple-darwin }
+          - { os: windows, arch: x86_64,  runner: windows-latest, triple: x86_64-pc-windows-msvc }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target.triple }}
+
+      - name: Install Linux cross toolchain (aarch64)
+        if: matrix.target.os == 'linux' && matrix.target.arch == 'aarch64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          mkdir -p .cargo
+          echo '[target.aarch64-unknown-linux-gnu]' >> .cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
+
+      - name: Build shim + bridge (release)
+        run: cargo build --release --workspace --target ${{ matrix.target.triple }}
+
+      - name: Verify license isolation (POSIX)
+        if: matrix.target.os != 'windows'
+        run: bash tool/verify_isolation.sh target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge${{ matrix.target.os == 'macos' && '.dylib' || '.so' }}
+
+      - name: Stage release artifacts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          tag="wavecrux-sigrok-bridge-${version}-${{ matrix.target.os }}-${{ matrix.target.arch }}"
+          stage="$(mktemp -d)/${tag}"
+          mkdir -p "$stage"
+          cp README.md LICENSE NOTICES CONTRIBUTING.md "$stage/"
+          cp -r docs "$stage/docs"
+          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+            cp target/${{ matrix.target.triple }}/release/wavecrux_sigrok_bridge.dll "$stage/"
+            cp target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge.exe "$stage/"
+            (cd "$(dirname "$stage")" && 7z a -tzip "${tag}.zip" "${tag}")
+            mv "$(dirname "$stage")/${tag}.zip" .
+            sha256sum "${tag}.zip" > "${tag}.zip.sha256"
+          else
+            ext="so"
+            [[ "${{ matrix.target.os }}" == "macos" ]] && ext="dylib"
+            cp target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge.${ext} "$stage/"
+            cp target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge "$stage/"
+            tar -czf "${tag}.tar.gz" -C "$(dirname "$stage")" "${tag}"
+            shasum -a 256 "${tag}.tar.gz" > "${tag}.tar.gz.sha256"
+          fi
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            wavecrux-sigrok-bridge-*.tar.gz
+            wavecrux-sigrok-bridge-*.tar.gz.sha256
+            wavecrux-sigrok-bridge-*.zip
+            wavecrux-sigrok-bridge-*.zip.sha256
+          generate_release_notes: true

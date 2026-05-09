@@ -1,0 +1,49 @@
+# Workspace root for the WaveCrux SigRok bridge.
+#
+# License: GPLv3-or-later. See LICENSE.
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/ipc",
+    "crates/shim",
+    "crates/bridge",
+    "tool/generate_fixtures",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/wavecrux/wavecrux-sigrok-bridge"
+authors = ["Martin Fink <martin.robert.fink@gmail.com>"]
+
+[workspace.dependencies]
+# Permissively licensed building blocks. Their dependency licenses are
+# MIT or Apache-2.0 unless noted in NOTICES; that is fine in a GPLv3+
+# repo because GPL is one-way: the repo as a whole is GPLv3+ regardless
+# of the individual dep licenses.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+anyhow = "1"
+byteorder = "1"
+log = "0.4"
+env_logger = "0.11"
+clap = { version = "4", features = ["derive"] }
+
+# Internal crates
+wavecrux-sigrok-bridge-ipc = { path = "crates/ipc", version = "0.1.0" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[profile.release.package."wavecrux-sigrok-bridge-shim"]
+# The shim is a cdylib loaded into the WaveCrux process. Keep panics
+# from unwinding across the C ABI boundary — `panic = "abort"` is a
+# workspace-level setting; this comment exists to make the intent
+# explicit.

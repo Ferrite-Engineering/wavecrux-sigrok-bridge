@@ -1,0 +1,23 @@
+{
+  "decoder_id": "sigrok.modbus",
+  "transactions": [
+    {
+      "end_fs": 4000000000,
+      "is_error": false,
+      "label": "Read Holding Registers",
+      "start_fs": 0
+    },
+    {
+      "end_fs": 1000000000,
+      "is_error": false,
+      "label": "fn=0x03",
+      "start_fs": 0
+    },
+    {
+      "end_fs": 4000000000,
+      "is_error": false,
+      "label": "CRC ok",
+      "start_fs": 3500000000
+    }
+  ]
+}

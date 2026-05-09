@@ -1,0 +1,20 @@
+[package]
+name = "wavecrux-sigrok-bridge-generate-fixtures"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Tool that emits the five reference VCDs and their .expected_transactions.json companions deterministically."
+
+[[bin]]
+name = "generate-fixtures"
+path = "src/main.rs"
+
+[dependencies]
+wavecrux-sigrok-bridge-ipc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }

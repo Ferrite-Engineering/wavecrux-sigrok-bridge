@@ -1,0 +1,46 @@
+[package]
+name = "wavecrux-sigrok-bridge"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Subprocess companion to the WaveCrux SigRok bridge shim. Hosts libsigrokdecode and embeds Python."
+
+[[bin]]
+name = "wavecrux-sigrok-bridge"
+path = "src/main.rs"
+
+[features]
+# Default builds the subprocess in mock-decoders mode, where it
+# returns canned manifests for the five reference decoders and replays
+# scripted annotations. This lets the entire test suite run on a
+# machine without libsigrokdecode/libpython installed.
+#
+# The `sigrok` feature pulls in the real libsigrokdecode + Python
+# embedding chain. Enabling it is the only way to get GPL-licensed
+# native code into this binary.
+default = []
+sigrok = ["dep:pyo3"]
+
+[dependencies]
+wavecrux-sigrok-bridge-ipc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+clap = { workspace = true }
+
+# Real libsigrokdecode hookup. Gated behind `sigrok` because pulling in
+# pyo3 + a libsigrokdecode build is the part that requires a GPL-aware
+# CI environment. The default feature set keeps the subprocess
+# pure-Rust + permissive deps.
+pyo3 = { version = "0.22", features = ["auto-initialize"], optional = true }
+
+[build-dependencies]
+# bindgen runs only when the `sigrok` feature is active. Keeping it as
+# a build dep is fine even when not active — Cargo only compiles it on
+# demand.
