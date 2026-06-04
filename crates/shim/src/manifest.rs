@@ -34,10 +34,21 @@ pub(crate) fn build_manifest_json(m: &DecoderManifest) -> String {
         .options
         .iter()
         .map(|o| {
+            use wavecrux_sigrok_bridge_ipc::OptionKind;
+            // Translate IPC OptionKind to the WaveCrux manifest "kind" strings
+            // defined in wavecrux_decoder.h. WaveCrux has no float type yet;
+            // float options fall back to "string" so users can type a value.
+            let kind = match o.kind {
+                OptionKind::Bool => "boolean",
+                OptionKind::Int => "integer",
+                OptionKind::Float => "string",
+                OptionKind::Enum => "enumeration",
+                OptionKind::String => "string",
+            };
             json!({
                 "name": o.name,
                 "description": o.description,
-                "kind": format!("{:?}", o.kind).to_lowercase(),
+                "kind": kind,
                 "default": o.default,
                 "choices": o.choices,
             })
@@ -118,6 +129,6 @@ mod tests {
         let params = v["parameters"].as_array().unwrap();
         assert_eq!(params.len(), 1);
         assert_eq!(params[0]["name"], "baudrate");
-        assert_eq!(params[0]["kind"], "int");
+        assert_eq!(params[0]["kind"], "integer");
     }
 }
