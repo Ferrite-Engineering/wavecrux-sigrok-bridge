@@ -173,14 +173,13 @@ fn resolve_subprocess_path() -> Option<PathBuf> {
         }
     }
 
-    // 2. Sibling-binary lookup. dladdr is the canonical way to get the
-    // path of the loaded library; we approximate it with current_exe
-    // for now (works in most embedding scenarios but does NOT work when
-    // the shim is dlopen'd from a different process). On macOS / Linux
-    // the shim binary's location can be recovered through the dlsym
-    // dance, which we implement in a follow-up.
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
+    // 2. Sibling binary in the same directory as this shared library.
+    //    shim_library_path() uses dladdr (Unix) / GetModuleHandleEx
+    //    (Windows) to get this dylib's own on-disk path — correct even
+    //    when the shim is dlopen'd from a foreign process, where
+    //    current_exe() would return the host app's path instead.
+    if let Some(lib_path) = shim_library_path() {
+        if let Some(parent) = lib_path.parent() {
             let candidate = parent.join(subprocess_filename());
             if candidate.exists() {
                 return Some(candidate);
@@ -193,6 +192,75 @@ fn resolve_subprocess_path() -> Option<PathBuf> {
     if let Some(path) = which_on_path(&name) {
         return Some(path);
     }
+    None
+}
+
+// Anchor used by dladdr / GetModuleHandleEx to identify this dylib.
+// Must not be inlined so the optimizer cannot place the code outside
+// this compilation unit's address range.
+#[inline(never)]
+fn shim_anchor() {}
+
+/// Returns the on-disk path of this shared library (.so / .dylib / .dll).
+#[cfg(unix)]
+fn shim_library_path() -> Option<PathBuf> {
+    let mut info: libc::Dl_info = unsafe { std::mem::zeroed() };
+    // Pass the address of a known symbol in this DSO. dladdr resolves it
+    // to the containing library's path via the dynamic linker's link-map —
+    // no symbol-name table needed, so strip = "symbols" is safe.
+    let ok = unsafe { libc::dladdr(shim_anchor as *const core::ffi::c_void, &mut info) };
+    if ok == 0 || info.dli_fname.is_null() {
+        return None;
+    }
+    let s = unsafe { std::ffi::CStr::from_ptr(info.dli_fname) }
+        .to_str()
+        .ok()?;
+    Some(PathBuf::from(s))
+}
+
+#[cfg(windows)]
+fn shim_library_path() -> Option<PathBuf> {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
+
+    type Bool = i32;
+    type Dword = u32;
+    type Hmodule = *mut core::ffi::c_void;
+    type Lpcvoid = *const core::ffi::c_void;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetModuleHandleExW(flags: Dword, module_name: Lpcvoid, module: *mut Hmodule) -> Bool;
+        fn GetModuleFileNameW(module: Hmodule, filename: *mut u16, size: Dword) -> Dword;
+    }
+
+    // FLAG_FROM_ADDRESS: resolve the module that contains the given address.
+    // FLAG_UNCHANGED_REFCOUNT: don't increment the module's reference count.
+    const FROM_ADDRESS: Dword = 0x0000_0004;
+    const UNCHANGED_REFCOUNT: Dword = 0x0000_0002;
+
+    let mut hmod: Hmodule = std::ptr::null_mut();
+    let ok = unsafe {
+        GetModuleHandleExW(
+            FROM_ADDRESS | UNCHANGED_REFCOUNT,
+            shim_anchor as Lpcvoid,
+            &mut hmod,
+        )
+    };
+    if ok == 0 {
+        return None;
+    }
+    // MAX_PATH on Windows is 260, but long-path-aware code uses 32 768.
+    let mut buf = vec![0u16; 32_768];
+    let len = unsafe { GetModuleFileNameW(hmod, buf.as_mut_ptr(), buf.len() as Dword) };
+    if len == 0 {
+        return None;
+    }
+    Some(PathBuf::from(OsString::from_wide(&buf[..len as usize])))
+}
+
+#[cfg(not(any(unix, windows)))]
+fn shim_library_path() -> Option<PathBuf> {
     None
 }
 

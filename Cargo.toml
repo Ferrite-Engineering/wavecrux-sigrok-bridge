@@ -32,6 +32,7 @@ byteorder = "1"
 log = "0.4"
 env_logger = "0.11"
 clap = { version = "4", features = ["derive"] }
+libc = "0.2"
 
 # Internal crates
 wavecrux-sigrok-bridge-ipc = { path = "crates/ipc", version = "0.1.0" }
