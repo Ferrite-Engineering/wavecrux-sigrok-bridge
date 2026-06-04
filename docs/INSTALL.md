@@ -26,18 +26,52 @@ shasum -a 256 -c wavecrux-sigrok-bridge-vX.Y.Z-<os>-<arch>.tar.gz.sha256
 
 ### 3. Extract and copy the shim into WaveCrux's plugin directory
 
-The default per-user plugin directories WaveCrux scans:
+**Easiest method (all platforms):** open WaveCrux, go to
+**Settings → Decoders → Plugins**, and click **Open plugin directory**.
+This creates the correct directory for your WaveCrux build and opens it
+in the system file manager. Drop both files in there.
+
+If you prefer to locate the directory manually:
 
 | Platform | Path |
 |---|---|
-| macOS | `~/Library/Application Support/wavecrux/decoders/` |
+| macOS | `~/Library/Application Support/<bundle-id>/wavecrux/decoders/` — the bundle-id varies by WaveCrux variant (e.g. `com.ferriteengineering.wavecruxPro`); use the button above to avoid guessing. |
 | Linux | `~/.local/share/wavecrux/decoders/` (or `$XDG_CONFIG_HOME/wavecrux/decoders/`) |
 | Windows | `%APPDATA%\WaveCrux\decoders\` |
 
-Copy `libwavecrux_sigrok_bridge.{so,dylib,dll}` into that directory.
+Copy **both** `libwavecrux_sigrok_bridge.{so,dylib,dll}` **and**
+`wavecrux-sigrok-bridge[.exe]` into that directory.
 
 To override the directory, set `WAVECRUX_DECODER_PATH` in your
 environment before launching WaveCrux.
+
+### 3a. macOS: remove the download quarantine flag and codesign
+
+macOS quarantines files downloaded from the internet. The release
+archive is ad-hoc signed (no Apple Developer account needed), but
+Gatekeeper still blocks quarantined binaries at first launch. After
+extracting and copying both files, run:
+
+```bash
+# Remove the quarantine flag added by your browser / curl / unarchiver
+xattr -d com.apple.quarantine \
+  "/path/to/decoders/wavecrux-sigrok-bridge" \
+  "/path/to/decoders/libwavecrux_sigrok_bridge.dylib" 2>/dev/null || true
+```
+
+The release binaries are already ad-hoc signed by CI; no manual
+`codesign` call is needed. If you built from source, ad-hoc sign both
+binaries yourself before placing them in the plugin directory:
+
+```bash
+codesign --sign - --force /path/to/wavecrux-sigrok-bridge
+codesign --sign - --force /path/to/libwavecrux_sigrok_bridge.dylib
+```
+
+**Why this is required:** WaveCrux is built with the macOS
+`CS_EXEC_SET_KILL` entitlement, which means any subprocess it spawns
+must carry a valid code signature. An unsigned binary is killed by the
+kernel immediately on launch with `SIGKILL (Code Signature Invalid)`.
 
 ### 4. Make the bridge subprocess discoverable
 
@@ -115,6 +149,31 @@ the mock backend (default), 130+ if you've built with the `sigrok`
 feature against a real libsigrokdecode.
 
 ## Troubleshooting
+
+### macOS: "Load failed — returned register-error rc=1" / bridge killed immediately
+
+The bridge subprocess is being killed by macOS before it can respond.
+This is the `SIGKILL (Code Signature Invalid)` / `Taskgated Invalid
+Signature` crash. Cause: WaveCrux propagates `CS_EXEC_SET_KILL` to child
+processes; unsigned binaries are killed before they can print anything.
+
+Fix — run both commands from the directory containing the bridge files:
+
+```bash
+codesign --sign - --force wavecrux-sigrok-bridge
+codesign --sign - --force libwavecrux_sigrok_bridge.dylib
+```
+
+Then do a full WaveCrux restart (not just "Reload plugins" — the shim
+dylib must be reloaded from disk for the new signature to take effect).
+
+If you downloaded the release archive and still see this, also remove
+the quarantine flag:
+
+```bash
+xattr -d com.apple.quarantine wavecrux-sigrok-bridge libwavecrux_sigrok_bridge.dylib
+codesign --sign - --force wavecrux-sigrok-bridge libwavecrux_sigrok_bridge.dylib
+```
 
 ### "wavecrux-sigrok-bridge binary not found"
 

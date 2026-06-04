@@ -54,6 +54,26 @@ jobs:
         if: matrix.target.os != 'windows'
         run: bash tool/verify_isolation.sh target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge${{ matrix.target.os == 'macos' && '.dylib' || '.so' }}
 
+      - name: Ad-hoc codesign macOS binaries
+        if: matrix.target.os == 'macos'
+        run: |
+          # Ad-hoc signing satisfies macOS's CS_EXEC_SET_KILL requirement:
+          # apps built with that flag (including WaveCrux dev builds) can only
+          # spawn child processes that have a valid code signature. An ad-hoc
+          # signature has no Apple-registered identity but is cryptographically
+          # valid and passes the kernel's CS_KILL check.
+          #
+          # For full notarized distribution a Developer ID certificate and
+          # Apple notarization service submission are needed (post-beta).
+          codesign --sign - --force \
+            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge.dylib
+          codesign --sign - --force \
+            target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
+          codesign --verify \
+            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge.dylib
+          codesign --verify \
+            target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
+
       - name: Stage release artifacts
         shell: bash
         run: |
