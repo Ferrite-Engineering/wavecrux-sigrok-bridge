@@ -103,6 +103,12 @@ fn request_and_drain(h: &mut Harness, id: u64, op: RequestOp) -> (Response, Vec<
     }
 }
 
+// The mock backend advertises exactly the five reference decoders with
+// scripted annotations. These assertions are specific to that backend;
+// under `--features sigrok` the binary hosts the real ~130-decoder
+// libsigrokdecode corpus instead, so they are gated off and replaced by
+// the `sigrok_*` tests at the bottom of this file.
+#[cfg(not(feature = "sigrok"))]
 #[test]
 fn lists_the_five_reference_decoders() {
     let mut h = Harness::spawn();
@@ -143,6 +149,10 @@ fn rejects_unknown_decoder_with_error_response() {
     h.shutdown();
 }
 
+// Mock-specific: the mock validates required channels up front. Real
+// libsigrokdecode reports a missing required channel at decode time, not
+// at session creation, so this exact shape only holds for the mock.
+#[cfg(not(feature = "sigrok"))]
 #[test]
 fn rejects_required_channel_missing_for_jtag() {
     let mut h = Harness::spawn();
@@ -162,6 +172,10 @@ fn rejects_required_channel_missing_for_jtag() {
     h.shutdown();
 }
 
+// Mock-specific: depends on the `sigrok.onewire` mock decoder (which is
+// not a real libsigrokdecode id — upstream has onewire_link /
+// onewire_network) and its scripted three-annotation output.
+#[cfg(not(feature = "sigrok"))]
 #[test]
 fn full_session_roundtrip_for_onewire_emits_three_annotations() {
     let mut h = Harness::spawn();
@@ -245,4 +259,120 @@ fn shutdown_request_terminates_subprocess() {
     assert!(matches!(msg, Message::Response(_)));
     let status = h.child.wait().expect("wait");
     assert!(status.success(), "subprocess should exit cleanly");
+}
+
+// ── sigrok-feature tests ─────────────────────────────────────────────
+//
+// These run only when the binary is built against real libsigrokdecode.
+// They assert the contract the IPC layer must uphold against the live
+// decoder corpus, rather than the mock's scripted annotations.
+
+#[cfg(feature = "sigrok")]
+#[test]
+fn sigrok_lists_the_real_decoder_corpus() {
+    let mut h = Harness::spawn();
+    let resp = h.request(1, RequestOp::ListDecoders);
+    let decoders: Vec<DecoderManifest> = match resp.status {
+        ResponseStatus::Ok {
+            body: Some(ResponseBody::Decoders(list)),
+        } => list,
+        other => panic!("unexpected response: {other:?}"),
+    };
+    // The exact count depends on the installed libsigrokdecode version
+    // (Homebrew 0.5.3 ships ~111; a full apt corpus is 130+). Assert a
+    // conservative lower bound plus the well-known protocol decoders.
+    assert!(
+        decoders.len() >= 50,
+        "expected the full libsigrokdecode corpus, got {}",
+        decoders.len()
+    );
+    let ids: Vec<_> = decoders.iter().map(|d| d.id.clone()).collect();
+    for want in [
+        "sigrok.jtag",
+        "sigrok.pwm",
+        "sigrok.dmx512",
+        "sigrok.modbus",
+        "sigrok.i2c",
+        "sigrok.spi",
+    ] {
+        assert!(ids.contains(&want.to_string()), "missing decoder {want}");
+    }
+    // Every manifest id carries the sigrok. prefix and a display name.
+    for d in &decoders {
+        assert!(d.id.starts_with("sigrok."), "bad id {}", d.id);
+        assert!(
+            !d.display_name.is_empty(),
+            "empty display_name for {}",
+            d.id
+        );
+    }
+    h.shutdown();
+}
+
+#[cfg(feature = "sigrok")]
+#[test]
+fn sigrok_full_session_lifecycle_for_pwm() {
+    let mut h = Harness::spawn();
+    let mut channels = std::collections::BTreeMap::new();
+    channels.insert("data".into(), 0u32);
+    let resp = h.request(
+        1,
+        RequestOp::CreateSession(CreateSessionBody {
+            decoder_id: "sigrok.pwm".into(),
+            channels,
+            options: Default::default(),
+            xz_policy: XzPolicy::Glitch,
+        }),
+    );
+    let session = match resp.status {
+        ResponseStatus::Ok {
+            body: Some(ResponseBody::SessionCreated { session }),
+        } => session,
+        other => panic!("create_session failed: {other:?}"),
+    };
+
+    // Feed a clean 50%-duty square wave: toggle channel 0 every 1 µs for
+    // a few periods (timestamps in femtoseconds).
+    let mut t = vec![];
+    for i in 0..16u64 {
+        t.push(SampleTransition {
+            fs: i * 1_000_000_000,
+            set: vec![ChannelChange {
+                ch: 0,
+                v: if i % 2 == 0 {
+                    BitValue::One
+                } else {
+                    BitValue::Zero
+                },
+            }],
+        });
+    }
+    let (resp, _events) = request_and_drain(
+        &mut h,
+        2,
+        RequestOp::Feed(FeedBody {
+            session: session.clone(),
+            samples: vec![SampleBatch { t }],
+        }),
+    );
+    assert!(
+        matches!(resp.status, ResponseStatus::Ok { .. }),
+        "feed failed: {:?}",
+        resp.status
+    );
+
+    // Finalize and destroy must both succeed; any emitted annotations are
+    // real pwm output and not asserted here (the mock's scripted shape
+    // does not apply to the live decoder).
+    let resp = h.request(
+        3,
+        RequestOp::Finalize(FinalizeBody {
+            session: session.clone(),
+        }),
+    );
+    assert!(matches!(resp.status, ResponseStatus::Ok { .. }));
+    let resp = h.request(4, RequestOp::Destroy(DestroyBody { session }));
+    assert!(matches!(resp.status, ResponseStatus::Ok { .. }));
+
+    h.shutdown();
 }

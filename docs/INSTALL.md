@@ -123,9 +123,38 @@ strips this when launching from `/Applications`).
 
 #### Windows
 
-The release archive bundles Windows builds of `libsigrokdecode`, the
-SigRok decoder corpus, and the official Python embeddable
-distribution. No separate install is needed.
+There is no apt/Homebrew-style package for `libsigrokdecode` on Windows.
+
+**Using a release archive (recommended):** the prebuilt release archive
+bundles Windows builds of `libsigrokdecode`, the SigRok decoder corpus,
+and the official Python embeddable distribution alongside the bridge
+binary. End users do **not** need to install anything separately — just
+extract the archive and copy the files into the plugin directory
+(steps 2–3 above).
+
+**Installing the runtime manually:** if you are not using a release
+archive, download the sigrok Windows build from
+<https://sigrok.org/wiki/Windows> — the `sigrok-cli` installer (or the
+nightly zip) includes `libsigrokdecode` and the decoder corpus. Extract
+`libsigrokdecode-*.dll` and its dependency DLLs (GLib, Python) **into the
+same directory as `wavecrux-sigrok-bridge.exe`** so the loader finds them
+at runtime.
+
+**Building the bridge from source on Windows:** `pkg-config` is usually
+absent on Windows, so `build.rs` falls back to the `LIBSIGROKDECODE_DIR`
+environment variable. Point it at a prefix containing `include/` (the
+headers) and `lib/` (the `sigrokdecode` import library) before building:
+
+```powershell
+$env:LIBSIGROKDECODE_DIR = "C:\sigrok\libsigrokdecode"
+cargo build -p wavecrux-sigrok-bridge --features sigrok --release
+```
+
+`build.rs` adds `-I%LIBSIGROKDECODE_DIR%\include` to the bindgen clang
+invocation and emits the corresponding `rustc-link-search` /
+`rustc-link-lib=sigrokdecode` directives. Building with the `sigrok`
+feature additionally requires LLVM/Clang on `PATH` (bindgen depends on
+`libclang`). The default (mock) build needs none of this.
 
 ### 6. Restart WaveCrux
 
@@ -188,12 +217,16 @@ The shim couldn't resolve the subprocess. Check, in order:
 The shim and the WaveCrux build are from different ABI MAJOR versions.
 Update both to the same release.
 
-### "real libsigrokdecode backend not implemented yet"
+### "libsigrokdecode failed to initialize" / empty decoder list
 
-The bridge was built with `--features sigrok` against a backend whose
-implementation is not yet complete (see `crates/bridge/src/srd.rs`).
-Rebuild without `--features sigrok` to use the mock decoders, or wait
-for the libsigrokdecode hookup to ship.
+The bridge was built with `--features sigrok` but `srd_init()` or
+`srd_decoder_load_all()` failed — usually because the Python decoder
+corpus is not on the default search path, or `libsigrokdecode` can't
+find its companion Python runtime. Check the subprocess stderr (the
+bridge logs the failing `srd_*` return code there). Confirm the runtime
+is installed per the platform notes above, then re-run
+`wavecrux-sigrok-bridge --list-decoders` directly. Rebuild without
+`--features sigrok` to fall back to the mock decoders.
 
 ### Subprocess crashes mid-session
 

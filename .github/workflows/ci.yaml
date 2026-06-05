@@ -74,10 +74,9 @@ jobs:
           Write-Output "OK: no GPL linkage or symbols"
 
   # The `sigrok` feature builds the bridge subprocess against the real
-  # libsigrokdecode + libpython chain. We only run it on Linux because
-  # `apt install libsigrokdecode-dev` is the simplest way to get a known
-  # version — macOS Homebrew and Windows builds will be wired in once
-  # the library hookup is implemented (see crates/bridge/src/srd.rs).
+  # libsigrokdecode + libpython chain. Linux uses apt and macOS uses
+  # Homebrew; both ship a `pkg-config`-discoverable libsigrokdecode that
+  # `build.rs` finds automatically.
   build_sigrok_feature_linux:
     name: build with sigrok feature (linux)
     runs-on: ubuntu-latest
@@ -93,3 +92,30 @@ jobs:
         run: cargo build -p wavecrux-sigrok-bridge --features sigrok
       - name: Test with sigrok feature
         run: cargo test -p wavecrux-sigrok-bridge --features sigrok
+
+  build_sigrok_feature_macos:
+    name: build with sigrok feature (macos)
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install libsigrokdecode (Homebrew)
+        run: |
+          brew update
+          # Pulls in glib + a python@3.x; libsigrokdecode ships a
+          # pkg-config file that build.rs uses to locate headers/libs.
+          brew install libsigrokdecode
+      - name: Build bridge with sigrok feature
+        run: cargo build -p wavecrux-sigrok-bridge --features sigrok
+      - name: Test with sigrok feature
+        run: cargo test -p wavecrux-sigrok-bridge --features sigrok
+
+  # TODO(windows-sigrok): wire up a `build_sigrok_feature_windows` job.
+  # Windows has no apt/Homebrew equivalent for libsigrokdecode — the only
+  # distribution is the sigrok-cli installer / nightly zips from
+  # https://sigrok.org/wiki/Windows. Until that download story is pinned
+  # to a known-good artifact, `build.rs` supports a manual install via the
+  # `LIBSIGROKDECODE_DIR` env var (see docs/INSTALL.md, Windows section),
+  # but CI does not exercise the sigrok feature on Windows. The default
+  # (mock) build + isolation gate already run on windows-latest above.

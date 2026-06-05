@@ -20,9 +20,11 @@ path = "src/main.rs"
 #
 # The `sigrok` feature pulls in the real libsigrokdecode + Python
 # embedding chain. Enabling it is the only way to get GPL-licensed
-# native code into this binary.
+# native code into this binary. It also activates the bindgen +
+# pkg-config build-time tooling (declared optional below) so the
+# default build never compiles them.
 default = []
-sigrok = ["dep:pyo3"]
+sigrok = ["dep:pyo3", "dep:bindgen", "dep:pkg-config"]
 
 [dependencies]
 wavecrux-sigrok-bridge-ipc = { workspace = true }
@@ -38,9 +40,18 @@ clap = { workspace = true }
 # pyo3 + a libsigrokdecode build is the part that requires a GPL-aware
 # CI environment. The default feature set keeps the subprocess
 # pure-Rust + permissive deps.
-pyo3 = { version = "0.22", features = ["auto-initialize"], optional = true }
+#
+# `auto-initialize` is intentionally OFF: libsigrokdecode's `srd_init()`
+# initializes the embedded CPython interpreter itself. If PyO3 were
+# allowed to call `Py_Initialize` first, the subsequent `srd_init()`
+# would double-initialize Python and crash. We keep the dependency so
+# libpython is linked, but never drive the interpreter from PyO3.
+pyo3 = { version = "0.28", features = [], optional = true }
 
 [build-dependencies]
-# bindgen runs only when the `sigrok` feature is active. Keeping it as
-# a build dep is fine even when not active — Cargo only compiles it on
-# demand.
+# These only compile when the `sigrok` feature is active (they are
+# activated by `sigrok = [..., "dep:bindgen", "dep:pkg-config"]`), so
+# the default mock build never pulls them in. `build.rs` additionally
+# guards every use behind `#[cfg(feature = "sigrok")]`.
+bindgen = { version = "0.72", optional = true }
+pkg-config = { version = "0.3.33", optional = true }
