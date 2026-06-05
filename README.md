@@ -164,6 +164,9 @@ GPLv3+ with a Developer Certificate of Origin sign-off (`git commit -s`).
 
 ## Documentation
 
+* [`HOW_TO_BUILD.md`](HOW_TO_BUILD.md) — build the shim and bridge from
+  source (macOS, Linux, Windows), including the real `--features sigrok`
+  backend, and install your build into WaveCrux.
 * [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — design overview and the
   rationale for every major decision.
 * [`docs/IPC_PROTOCOL.md`](docs/IPC_PROTOCOL.md) — the JSON-IPC schema and
