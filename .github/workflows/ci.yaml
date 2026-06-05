@@ -61,12 +61,23 @@ jobs:
             Write-Error "no shim binary at $bin"
             exit 2
           }
-          $deps = & dumpbin /dependents $bin
+          # `dumpbin` ships with MSVC but is not on PATH in the default
+          # runner shell. Resolve its full path via vswhere (preinstalled
+          # on windows runners) rather than depending on a dev-cmd shell.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $dumpbin = & $vswhere -latest -products * `
+            -find "VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" |
+            Select-Object -First 1
+          if (-not $dumpbin) {
+            Write-Error "could not locate dumpbin.exe via vswhere"
+            exit 2
+          }
+          $deps = & $dumpbin /dependents $bin
           if ($deps -match 'sigrokdecode|python3[0-9]+\.dll') {
             Write-Error "forbidden GPL DLL linkage:`n$deps"
             exit 1
           }
-          $syms = & dumpbin /symbols $bin
+          $syms = & $dumpbin /symbols $bin
           if ($syms -match '(\W|_)srd_|(\W|_)Py_|(\W|_)PyInit|(\W|_)PyEval|(\W|_)PyImport|(\W|_)PyObject|(\W|_)PyModule|(\W|_)PyArg|(\W|_)PyTuple') {
             Write-Error "forbidden GPL symbols present"
             exit 1
