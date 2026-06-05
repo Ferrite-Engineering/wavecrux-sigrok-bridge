@@ -19,7 +19,10 @@ use crate::registry::{Registry, RegistryError};
 // ── ABI constants (must match wavecrux_decoder.h) ────────────────────
 
 const WAVECRUX_DECODER_ABI_MAJOR: u32 = 1;
-const WAVECRUX_DECODER_ABI_MINOR: u32 = 0;
+// Bumped to 1 for the optional self-identification entry points
+// (`wavecrux_decoder_plugin_name` / `_description`). The host only gates
+// on MAJOR, so this remains backward compatible.
+const WAVECRUX_DECODER_ABI_MINOR: u32 = 1;
 
 const WC_DECODER_OK: i32 = 0;
 const WC_DECODER_ERR: i32 = 1;
@@ -138,6 +141,26 @@ pub unsafe extern "C" fn wavecrux_decoder_register(
             WC_DECODER_ERR
         }
     }
+}
+
+/// Optional ABI 1.1 entry point: the plugin's own user-facing name.
+/// WaveCrux shows this as the Settings → Decoders plugin-card title
+/// rather than borrowing the first decoder's name (which, against a real
+/// libsigrokdecode corpus, would be the alphabetically-first decoder —
+/// "Audio Codec '97"). Returns a borrowed-for-lifetime static string.
+#[no_mangle]
+pub extern "C" fn wavecrux_decoder_plugin_name() -> *const c_char {
+    // Static, NUL-terminated, valid for the library's whole lifetime.
+    b"WaveCrux SigRok Bridge\0".as_ptr() as *const c_char
+}
+
+/// Optional ABI 1.1 entry point: a one-line plugin description, shown
+/// beneath the name. Carries the GPLv3+ notice (repo invariant 4) so it
+/// is visible wherever the plugin is listed.
+#[no_mangle]
+pub extern "C" fn wavecrux_decoder_plugin_description() -> *const c_char {
+    b"libsigrokdecode protocol decoders, via subprocess bridge (GPLv3+).\0".as_ptr()
+        as *const c_char
 }
 
 /// Helper for the registry: a self-contained, leaked-on-purpose
@@ -285,7 +308,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn abi_version_is_one_zero() {
-        assert_eq!(wavecrux_decoder_abi_version(), 0x0001_0000);
+    fn abi_version_is_one_one() {
+        assert_eq!(wavecrux_decoder_abi_version(), 0x0001_0001);
+    }
+
+    #[test]
+    fn plugin_name_and_description_are_valid_cstrings() {
+        // SAFETY: both entry points return static NUL-terminated strings
+        // valid for the process lifetime.
+        let name = unsafe { CStr::from_ptr(wavecrux_decoder_plugin_name()) }
+            .to_str()
+            .unwrap();
+        assert_eq!(name, "WaveCrux SigRok Bridge");
+
+        let desc = unsafe { CStr::from_ptr(wavecrux_decoder_plugin_description()) }
+            .to_str()
+            .unwrap();
+        assert!(
+            desc.contains("GPLv3+"),
+            "description must carry the GPL notice"
+        );
     }
 }

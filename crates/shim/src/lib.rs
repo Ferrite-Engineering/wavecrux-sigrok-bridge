@@ -24,7 +24,10 @@ mod manifest;
 mod registry;
 mod supervisor;
 
-pub use abi::{wavecrux_decoder_abi_version, wavecrux_decoder_register};
+pub use abi::{
+    wavecrux_decoder_abi_version, wavecrux_decoder_plugin_description,
+    wavecrux_decoder_plugin_name, wavecrux_decoder_register,
+};
 
 /// Initialize logging once on first plugin entry. The WaveCrux loader
 /// invokes the registration entry point exactly once per library load,
