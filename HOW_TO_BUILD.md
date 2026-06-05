@@ -95,21 +95,29 @@ The `--features sigrok` build needs, at build time:
 * **`libsigrokdecode`** + its development headers,
 * **Python 3.10+** (libsigrokdecode embeds it),
 * **`pkg-config`** (Linux/macOS — used to locate libsigrokdecode),
-* **LLVM/Clang** (`libclang`) — the build uses `bindgen` to generate the
-  Rust↔C bindings, and bindgen needs `libclang` to parse the headers.
+* **`libclang`** — the build uses `bindgen` to parse the C headers, and
+  bindgen loads `libclang` at build time. Where it comes from depends on
+  the platform (Apple's Command Line Tools on macOS, `libclang-dev` on
+  Linux, an LLVM install on Windows); the per-OS steps below cover it, so
+  you don't install it separately on macOS.
 
 ### macOS (Homebrew)
 
 ```bash
-brew install libsigrokdecode pkg-config llvm
+brew install libsigrokdecode pkg-config
 # Homebrew's libsigrokdecode pulls in glib and a python@3.x automatically.
 ```
 
-Apple's Command Line Tools already ship a usable `clang`, so the
-`llvm` formula is only needed if bindgen can't find `libclang`; if the
-build later complains it can't load `libclang`, set:
+That's the whole list. bindgen also needs `libclang`, but Apple's
+Command Line Tools already provide it (and if you have Homebrew you
+already have the Command Line Tools), so there's normally nothing extra
+to install — this is the exact set CI builds with.
+
+**Only if** the build later fails with a "can't find libclang" /
+"unable to find libclang" error, install LLVM and point bindgen at it:
 
 ```bash
+brew install llvm
 export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
 ```
 
@@ -313,8 +321,10 @@ Zero to working SigRok decoders on an Apple-silicon Mac, copy-paste:
 
 ```bash
 # 1. Toolchains & SigRok runtime
+#    (libclang comes from Apple's Command Line Tools — no llvm needed;
+#     if the build later can't find libclang, see the macOS deps section.)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-brew install libsigrokdecode pkg-config llvm
+brew install libsigrokdecode pkg-config
 
 # 2. Clone & build the real backend
 git clone https://github.com/wavecrux/wavecrux-sigrok-bridge.git
