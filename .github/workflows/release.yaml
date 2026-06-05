@@ -9,6 +9,17 @@ name: release
 #   - README.md, LICENSE, INSTALL.md
 #   - SHA256SUMS
 #
+# Backend per target:
+#   - linux (x86_64, aarch64) and macOS (x86_64, arm64) ship the REAL
+#     `--features sigrok` backend: the bridge links libsigrokdecode and
+#     the Python decoder corpus dynamically, so the end user installs the
+#     runtime (`apt install libsigrokdecode4` / `brew install
+#     libsigrokdecode`) per docs/INSTALL.md — the archive is not
+#     self-contained.
+#   - windows ships the MOCK backend for now (no apt/Homebrew source for
+#     libsigrokdecode on Windows; the DLL-bundling story is unresolved).
+#     See the `sigrok: false` matrix entry and docs/INSTALL.md.
+#
 # Tag scheme: v-MAJOR.MINOR.PATCH (matches Cargo.toml).
 
 on:
@@ -25,12 +36,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # `sigrok: true` builds the real libsigrokdecode backend; the
+        # Linux aarch64 job runs on a NATIVE arm64 runner so it builds
+        # the GPL toolchain (libsigrokdecode + Python + libclang) without
+        # the cross-compile gymnastics that backend would otherwise need.
+        # Windows stays on the mock backend (`sigrok: false`).
         target:
-          - { os: linux,   arch: x86_64,  runner: ubuntu-latest, triple: x86_64-unknown-linux-gnu }
-          - { os: linux,   arch: aarch64, runner: ubuntu-latest, triple: aarch64-unknown-linux-gnu }
-          - { os: macos,   arch: x86_64,  runner: macos-13,      triple: x86_64-apple-darwin }
-          - { os: macos,   arch: arm64,   runner: macos-14,      triple: aarch64-apple-darwin }
-          - { os: windows, arch: x86_64,  runner: windows-latest, triple: x86_64-pc-windows-msvc }
+          - { os: linux,   arch: x86_64,  runner: ubuntu-latest,    triple: x86_64-unknown-linux-gnu,  sigrok: true }
+          - { os: linux,   arch: aarch64, runner: ubuntu-24.04-arm, triple: aarch64-unknown-linux-gnu, sigrok: true }
+          - { os: macos,   arch: x86_64,  runner: macos-13,         triple: x86_64-apple-darwin,        sigrok: true }
+          - { os: macos,   arch: arm64,   runner: macos-14,         triple: aarch64-apple-darwin,       sigrok: true }
+          - { os: windows, arch: x86_64,  runner: windows-latest,   triple: x86_64-pc-windows-msvc,     sigrok: false }
     steps:
       - uses: actions/checkout@v4
 
@@ -38,17 +54,22 @@ jobs:
         with:
           targets: ${{ matrix.target.triple }}
 
-      - name: Install Linux cross toolchain (aarch64)
-        if: matrix.target.os == 'linux' && matrix.target.arch == 'aarch64'
+      - name: Install SigRok build deps (Linux)
+        if: matrix.target.os == 'linux' && matrix.target.sigrok
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-          mkdir -p .cargo
-          echo '[target.aarch64-unknown-linux-gnu]' >> .cargo/config.toml
-          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
+          sudo apt-get install -y \
+            libsigrokdecode4 libsigrokdecode-dev python3-dev \
+            pkg-config clang libclang-dev
+
+      - name: Install SigRok build deps (macOS)
+        if: matrix.target.os == 'macos' && matrix.target.sigrok
+        run: |
+          brew update
+          brew install pkg-config libsigrokdecode
 
       - name: Build shim + bridge (release)
-        run: cargo build --release --workspace --target ${{ matrix.target.triple }}
+        run: cargo build --release --workspace --target ${{ matrix.target.triple }} ${{ matrix.target.sigrok && '--features sigrok' || '' }}
 
       - name: Verify license isolation (POSIX)
         if: matrix.target.os != 'windows'

@@ -10,8 +10,8 @@ and Windows alongside WaveCrux on the same machine.
 | Requirement | Why |
 |---|---|
 | WaveCrux ≥ X.Y (Phase 4.1 plugin loader) | The bridge plugs into the WaveCrux user-contributed decoder loader. |
-| Python 3.10 or later, accessible via the system | The bridge subprocess embeds Python at runtime. Linux/macOS use the system or Homebrew Python; the Windows release archive bundles the official embeddable distribution. |
-| `libsigrokdecode` runtime + the SigRok decoder set | The subprocess loads these on startup. See platform-specific instructions below. |
+| Python 3.10 or later, accessible via the system | The bridge subprocess embeds Python at runtime. Linux/macOS use the system or Homebrew Python. (The Windows release archive currently ships the mock backend, which embeds no Python — see the Windows note below.) |
+| `libsigrokdecode` runtime + the SigRok decoder set | The real-backend subprocess loads these on startup (Linux/macOS release archives). See platform-specific instructions below. |
 
 ### 2. Download the release archive
 
@@ -125,15 +125,17 @@ strips this when launching from `/Applications`).
 
 There is no apt/Homebrew-style package for `libsigrokdecode` on Windows.
 
-**Using a release archive (recommended):** the prebuilt release archive
-bundles Windows builds of `libsigrokdecode`, the SigRok decoder corpus,
-and the official Python embeddable distribution alongside the bridge
-binary. End users do **not** need to install anything separately — just
-extract the archive and copy the files into the plugin directory
-(steps 2–3 above).
+**Current state: the Windows release archive ships the mock backend**
+(the five reference decoders), so it has no runtime dependencies — just
+extract and copy the files into the plugin directory (steps 2–3 above).
+Bundling a real `libsigrokdecode` + Python runtime into the Windows
+archive is not done yet (the Linux and macOS archives ship the real
+backend). To run the full SigRok corpus on Windows today you build from
+source — see [`../HOW_TO_BUILD.md`](../HOW_TO_BUILD.md) — and supply the
+runtime yourself as below.
 
-**Installing the runtime manually:** if you are not using a release
-archive, download the sigrok Windows build from
+**Installing the runtime manually:** download the sigrok Windows build
+from
 <https://sigrok.org/wiki/Windows> — the `sigrok-cli` installer (or the
 nightly zip) includes `libsigrokdecode` and the decoder corpus. Extract
 `libsigrokdecode-*.dll` and its dependency DLLs (GLib, Python) **into the

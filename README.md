@@ -121,7 +121,7 @@ Python 3.10 or later.
 | Linux (Debian/Ubuntu) | `sudo apt install libsigrokdecode4 libsigrokdecode-dev sigrok-cli` |
 | Linux (Fedora) | `sudo dnf install libsigrokdecode libsigrokdecode-devel` |
 | macOS (Homebrew) | `brew install libsigrokdecode` |
-| Windows | The release archive bundles Windows builds of `libsigrokdecode`, the SigRok decoder set, and the official Python embeddable distribution. No separate install needed. |
+| Windows | **The Windows release archive currently ships the mock backend** (the five reference decoders), because there is no `apt`/Homebrew source for `libsigrokdecode` on Windows yet. To get the full SigRok corpus on Windows today, build from source against a manually-installed `libsigrokdecode` — see [`HOW_TO_BUILD.md`](HOW_TO_BUILD.md). The Linux and macOS release archives ship the real backend (install the runtime above). |
 
 See [`docs/INSTALL.md`](docs/INSTALL.md) for detailed per-OS instructions
 and troubleshooting.

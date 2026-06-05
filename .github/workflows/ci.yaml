@@ -74,20 +74,25 @@ jobs:
           Write-Output "OK: no GPL linkage or symbols"
 
   # The `sigrok` feature builds the bridge subprocess against the real
-  # libsigrokdecode + libpython chain. Linux uses apt and macOS uses
-  # Homebrew; both ship a `pkg-config`-discoverable libsigrokdecode that
-  # `build.rs` finds automatically.
+  # libsigrokdecode + libpython chain — the backend we ship going forward.
+  # These jobs are REQUIRED (no continue-on-error): a broken real build
+  # fails CI. The mock backend must keep compiling and passing too, which
+  # the default-feature `build_and_test` job above covers. Linux uses apt
+  # and macOS uses Homebrew; both ship a `pkg-config`-discoverable
+  # libsigrokdecode that `build.rs` finds automatically. bindgen needs
+  # `libclang`, so it is installed explicitly.
   build_sigrok_feature_linux:
     name: build with sigrok feature (linux)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install libsigrokdecode + Python dev headers
+      - name: Install libsigrokdecode + Python + bindgen toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsigrokdecode4 libsigrokdecode-dev python3-dev
+          sudo apt-get install -y \
+            libsigrokdecode4 libsigrokdecode-dev python3-dev \
+            pkg-config clang libclang-dev
       - name: Build bridge with sigrok feature
         run: cargo build -p wavecrux-sigrok-bridge --features sigrok
       - name: Test with sigrok feature
@@ -96,16 +101,16 @@ jobs:
   build_sigrok_feature_macos:
     name: build with sigrok feature (macos)
     runs-on: macos-14
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Install libsigrokdecode (Homebrew)
         run: |
           brew update
-          # Pulls in glib + a python@3.x; libsigrokdecode ships a
-          # pkg-config file that build.rs uses to locate headers/libs.
-          brew install libsigrokdecode
+          # libsigrokdecode pulls in glib + a python@3.x. pkg-config is the
+          # binary build.rs shells out to locate the headers/libs; bindgen
+          # uses the libclang from Xcode's command-line tools.
+          brew install pkg-config libsigrokdecode
       - name: Build bridge with sigrok feature
         run: cargo build -p wavecrux-sigrok-bridge --features sigrok
       - name: Test with sigrok feature
