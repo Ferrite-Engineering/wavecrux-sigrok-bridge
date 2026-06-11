@@ -10,7 +10,7 @@ name: release
 #   - SHA256SUMS
 #
 # Backend per target:
-#   - linux (x86_64, aarch64) and macOS (x86_64, arm64) ship the REAL
+#   - linux (x86_64) and macOS (x86_64, arm64) ship the REAL
 #     `--features sigrok` backend: the bridge links libsigrokdecode and
 #     the Python decoder corpus dynamically, so the end user installs the
 #     runtime (`apt install libsigrokdecode4` / `brew install
@@ -36,14 +36,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # `sigrok: true` builds the real libsigrokdecode backend; the
-        # Linux aarch64 job runs on a NATIVE arm64 runner so it builds
-        # the GPL toolchain (libsigrokdecode + Python + libclang) without
-        # the cross-compile gymnastics that backend would otherwise need.
-        # Windows stays on the mock backend (`sigrok: false`).
+        # `sigrok: true` builds the real libsigrokdecode backend on a
+        # Linux x86_64 runner that builds the GPL toolchain
+        # (libsigrokdecode + Python + libclang). Windows stays on the
+        # mock backend (`sigrok: false`). Rive has no Linux/Windows ARM
+        # runtime, so WaveCrux ships no Linux/Windows ARM build and the
+        # bridge follows suit — macOS ARM (Apple Silicon) is unaffected.
         target:
           - { os: linux,   arch: x86_64,  runner: ubuntu-latest,    triple: x86_64-unknown-linux-gnu,  sigrok: true }
-          - { os: linux,   arch: aarch64, runner: ubuntu-24.04-arm, triple: aarch64-unknown-linux-gnu, sigrok: true }
           - { os: macos,   arch: x86_64,  runner: macos-13,         triple: x86_64-apple-darwin,        sigrok: true }
           - { os: macos,   arch: arm64,   runner: macos-14,         triple: aarch64-apple-darwin,       sigrok: true }
           - { os: windows, arch: x86_64,  runner: windows-latest,   triple: x86_64-pc-windows-msvc,     sigrok: false }

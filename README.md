@@ -80,7 +80,6 @@ Grab the archive matching your OS and architecture from
 * `wavecrux-sigrok-bridge-vX.Y.Z-macos-arm64.tar.gz`
 * `wavecrux-sigrok-bridge-vX.Y.Z-macos-x86_64.tar.gz`
 * `wavecrux-sigrok-bridge-vX.Y.Z-linux-x86_64.tar.gz`
-* `wavecrux-sigrok-bridge-vX.Y.Z-linux-aarch64.tar.gz`
 * `wavecrux-sigrok-bridge-vX.Y.Z-windows-x86_64.zip`
 
 Verify against `SHA256SUMS` in the same release.
