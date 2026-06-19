@@ -8,6 +8,12 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: short
+  # Force cargo's crates.io transfers onto HTTP/1.1. The HTTP/2 multiplexed
+  # downloader intermittently dies with "[16] Error in the HTTP2 framing
+  # layer" on GitHub runners (seen 2026-06-19 fetching colorchoice), failing
+  # the whole build on a transient network fault. HTTP/1.1 is marginally
+  # slower but does not hit the framing bug.
+  CARGO_HTTP_MULTIPLEXING: false
 
 jobs:
   build_and_test:
