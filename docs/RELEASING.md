@@ -151,3 +151,50 @@ signing (for SmartScreen compatibility) follows a similar pattern to
 Apple notarization — a code-signing certificate from a trusted CA, a
 `signtool.exe` step in CI. Add this before v1.0 if WaveCrux ships a
 Windows installer that includes the bridge.
+
+## Windows full-backend bundle (pre-v1.0)
+
+**Current state (beta):** the Windows release archive ships the **mock
+backend** only — the five reference decoders, pure Rust, no runtime
+dependencies (`sigrok: false` in `release.yaml`). The Linux and macOS
+archives ship the real `libsigrokdecode` backend; Windows does not. This
+is a *packaging* gap, not a capability gap — libsigrokdecode and its Python
+decoder corpus run on Windows (sigrok ships a Windows build), but there is
+no `apt`/Homebrew-style package to install the runtime, so the real backend
+cannot lean on a system package the way Linux/macOS do.
+
+To reach decoder parity with Linux/macOS on Windows, one of these has to
+land before v1.0:
+
+1. **Self-contained bundle (preferred).** Build the Windows archive with
+   `--features sigrok` and bundle the runtime *into* the archive:
+   `libsigrokdecode.dll`, its GLib dependency DLLs, an embedded Python
+   interpreter, and the Python decoder corpus — all placed next to
+   `wavecrux-sigrok-bridge.exe` so the loader resolves them with no user
+   setup. This is real packaging work (DLL dependency closure + Python
+   embedding) and is the main reason Windows is still on the mock backend.
+   - GPL note: bundling these DLLs is fine — they ship inside *this*
+     GPLv3+ repo's release, with source in the same repo (see "Repository
+     visibility & GPL source availability" above). No new licensing blocker.
+   - Add a `sigrok: true` Windows matrix entry to `release.yaml` plus a
+     bundling step once the DLL closure is pinned.
+
+2. **Documented manual-runtime path (fallback).** Keep the mock archive but
+   point Windows users at sigrok's own Windows build
+   (<https://sigrok.org/wiki/Windows>) to drop `libsigrokdecode-*.dll` + its
+   dependency DLLs next to the bridge `.exe`. Already documented in
+   `docs/INSTALL.md`; no CI change. This is the beta answer, not the v1.0
+   answer.
+
+Track this alongside the Windows Authenticode signing item above — they are
+the same "make Windows a first-class distribution target" workstream.
+
+### Pre-v1.0 Windows checklist
+
+- [ ] Decide bundle (#1) vs. keep documented-manual (#2) for v1.0.
+- [ ] If bundling: pin the `libsigrokdecode` + GLib + Python DLL closure and
+      add the `sigrok: true` Windows build + bundling step to `release.yaml`.
+- [ ] Windows Authenticode signing (`signtool.exe` + CA cert) wired into CI.
+- [ ] Verify a clean-Windows install exposes the full corpus (or the
+      documented mock set) with the decoder count shown in
+      `Settings → Decoders → Plugins`.
