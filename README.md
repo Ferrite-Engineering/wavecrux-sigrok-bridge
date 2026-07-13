@@ -75,7 +75,7 @@ loader is not available on iOS, Android, or web.
 ### 1. Download the release archive
 
 Grab the archive matching your OS and architecture from
-[GitHub Releases](https://github.com/wavecrux/wavecrux-sigrok-bridge/releases):
+[GitHub Releases](https://github.com/Ferrite-Engineering/wavecrux-sigrok-bridge/releases):
 
 * `wavecrux-sigrok-bridge-vX.Y.Z-macos-arm64.tar.gz`
 * `wavecrux-sigrok-bridge-vX.Y.Z-macos-x86_64.tar.gz`

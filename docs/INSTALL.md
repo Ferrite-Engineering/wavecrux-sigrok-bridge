@@ -16,7 +16,7 @@ and Windows alongside WaveCrux on the same machine.
 ### 2. Download the release archive
 
 Grab the archive matching your OS+architecture from
-[GitHub Releases](https://github.com/wavecrux/wavecrux-sigrok-bridge/releases),
+[GitHub Releases](https://github.com/Ferrite-Engineering/wavecrux-sigrok-bridge/releases),
 along with the matching `*.sha256` companion. Verify the checksum before
 extracting:
 

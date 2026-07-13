@@ -67,7 +67,7 @@ toolchain automatically the first time you run `cargo` in the repo.
 Then clone the repo (it has no submodules):
 
 ```bash
-git clone https://github.com/wavecrux/wavecrux-sigrok-bridge.git
+git clone https://github.com/Ferrite-Engineering/wavecrux-sigrok-bridge.git
 cd wavecrux-sigrok-bridge
 ```
 
@@ -327,7 +327,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 brew install libsigrokdecode pkg-config
 
 # 2. Clone & build the real backend
-git clone https://github.com/wavecrux/wavecrux-sigrok-bridge.git
+git clone https://github.com/Ferrite-Engineering/wavecrux-sigrok-bridge.git
 cd wavecrux-sigrok-bridge
 cargo build --release --workspace --features sigrok
 
