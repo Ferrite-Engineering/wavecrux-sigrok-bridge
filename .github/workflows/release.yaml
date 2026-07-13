@@ -44,7 +44,7 @@ jobs:
         # bridge follows suit — macOS ARM (Apple Silicon) is unaffected.
         target:
           - { os: linux,   arch: x86_64,  runner: ubuntu-latest,    triple: x86_64-unknown-linux-gnu,  sigrok: true }
-          - { os: macos,   arch: x86_64,  runner: macos-13,         triple: x86_64-apple-darwin,        sigrok: true }
+          - { os: macos,   arch: x86_64,  runner: macos-15-intel,         triple: x86_64-apple-darwin,        sigrok: true }
           - { os: macos,   arch: arm64,   runner: macos-14,         triple: aarch64-apple-darwin,       sigrok: true }
           - { os: windows, arch: x86_64,  runner: windows-latest,   triple: x86_64-pc-windows-msvc,     sigrok: false }
     steps:
