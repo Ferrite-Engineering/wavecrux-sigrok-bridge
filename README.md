@@ -32,7 +32,7 @@ table.
 
 The plugin consists of two cooperating binaries:
 
-* **The shim** (`libwavecrux_sigrok_bridge.{so,dylib,dll}`) — a tiny native
+* **The shim** (`libwavecrux_sigrok_bridge_shim.{so,dylib,dll}`) — a tiny native
   library implementing WaveCrux's C plugin ABI. The shim has **no GPL
   dependencies**: no `libsigrokdecode`, no `libpython`, no SigRok decoders.
   It only knows how to spawn a subprocess and exchange JSON over a pipe.
@@ -94,7 +94,7 @@ The default per-user plugin directory:
 | Linux   | `~/.local/share/wavecrux/decoders/` (or `$XDG_CONFIG_HOME/wavecrux/decoders/`) |
 | Windows | `%APPDATA%\WaveCrux\decoders\` |
 
-Copy `libwavecrux_sigrok_bridge.{so,dylib,dll}` into that directory. WaveCrux
+Copy `libwavecrux_sigrok_bridge_shim.{so,dylib,dll}` into that directory. WaveCrux
 scans the directory at startup; the path can be overridden with the
 `WAVECRUX_DECODER_PATH` environment variable.
 

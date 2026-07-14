@@ -39,7 +39,7 @@ If you prefer to locate the directory manually:
 | Linux | `~/.local/share/wavecrux/decoders/` (or `$XDG_CONFIG_HOME/wavecrux/decoders/`) |
 | Windows | `%APPDATA%\WaveCrux\decoders\` |
 
-Copy **both** `libwavecrux_sigrok_bridge.{so,dylib,dll}` **and**
+Copy **both** `libwavecrux_sigrok_bridge_shim.{so,dylib,dll}` **and**
 `wavecrux-sigrok-bridge[.exe]` into that directory.
 
 To override the directory, set `WAVECRUX_DECODER_PATH` in your
@@ -56,7 +56,7 @@ extracting and copying both files, run:
 # Remove the quarantine flag added by your browser / curl / unarchiver
 xattr -d com.apple.quarantine \
   "/path/to/decoders/wavecrux-sigrok-bridge" \
-  "/path/to/decoders/libwavecrux_sigrok_bridge.dylib" 2>/dev/null || true
+  "/path/to/decoders/libwavecrux_sigrok_bridge_shim.dylib" 2>/dev/null || true
 ```
 
 The release binaries are already ad-hoc signed by CI; no manual
@@ -65,7 +65,7 @@ binaries yourself before placing them in the plugin directory:
 
 ```bash
 codesign --sign - --force /path/to/wavecrux-sigrok-bridge
-codesign --sign - --force /path/to/libwavecrux_sigrok_bridge.dylib
+codesign --sign - --force /path/to/libwavecrux_sigrok_bridge_shim.dylib
 ```
 
 **Why this is required:** WaveCrux is built with the macOS
@@ -164,7 +164,7 @@ On next launch:
 
 * The decoder picker shows `sigrok.onewire`, `sigrok.jtag`, …, etc.
 * Settings → Decoders → Plugins shows
-  `wavecrux_sigrok_bridge.{so,dylib,dll}` with ABI version `1.0` and
+  `wavecrux_sigrok_bridge_shim.{so,dylib,dll}` with ABI version `1.0` and
   the count of advertised decoders.
 * The shim's manifest description in WaveCrux's UI carries the GPLv3+
   notice — that's invariant 4 from `CLAUDE.md`.
@@ -192,7 +192,7 @@ Fix — run both commands from the directory containing the bridge files:
 
 ```bash
 codesign --sign - --force wavecrux-sigrok-bridge
-codesign --sign - --force libwavecrux_sigrok_bridge.dylib
+codesign --sign - --force libwavecrux_sigrok_bridge_shim.dylib
 ```
 
 Then do a full WaveCrux restart (not just "Reload plugins" — the shim
@@ -202,8 +202,8 @@ If you downloaded the release archive and still see this, also remove
 the quarantine flag:
 
 ```bash
-xattr -d com.apple.quarantine wavecrux-sigrok-bridge libwavecrux_sigrok_bridge.dylib
-codesign --sign - --force wavecrux-sigrok-bridge libwavecrux_sigrok_bridge.dylib
+xattr -d com.apple.quarantine wavecrux-sigrok-bridge libwavecrux_sigrok_bridge_shim.dylib
+codesign --sign - --force wavecrux-sigrok-bridge libwavecrux_sigrok_bridge_shim.dylib
 ```
 
 ### "wavecrux-sigrok-bridge binary not found"
@@ -246,7 +246,7 @@ present). Install libsigrokdecode per the platform notes above.
 
 ## Uninstalling
 
-Remove `libwavecrux_sigrok_bridge.{so,dylib,dll}` from the WaveCrux
+Remove `libwavecrux_sigrok_bridge_shim.{so,dylib,dll}` from the WaveCrux
 plugin directory and remove the subprocess binary from wherever you
 placed it (sibling, PATH location, or env-var target). WaveCrux on
 next launch will not load the bridge.

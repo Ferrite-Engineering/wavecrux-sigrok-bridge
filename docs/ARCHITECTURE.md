@@ -43,7 +43,7 @@ mechanically enforced by `tool/verify_isolation.sh` in the
 │   └──────────────┬───────────────┘                         │
 │                  │ wavecrux_decoder.h (C ABI)              │
 │   ┌──────────────▼───────────────┐                         │
-│   │ libwavecrux_sigrok_bridge.*  │  ←── shim (this repo)   │
+│   │ libwavecrux_sigrok_bridge_shim.*  │  ←── shim (this repo)   │
 │   │ • implements C ABI           │      GPLv3+, but        │
 │   │ • spawns subprocess          │      contains no        │
 │   │ • forwards via JSON-IPC      │      GPL native code    │
@@ -79,7 +79,7 @@ mechanically enforced by `tool/verify_isolation.sh` in the
   The crate's *source* is GPLv3+ because the repo is GPLv3+, but the
   dependency closure is clean.
 * **`crates/shim`** — Rust `cdylib`. Compiled to
-  `libwavecrux_sigrok_bridge.{so,dylib,dll}`. Implements the C ABI
+  `libwavecrux_sigrok_bridge_shim.{so,dylib,dll}`. Implements the C ABI
   declared in `include/wavecrux_decoder.h` (vendored verbatim from the
   WaveCrux open-core repo). **Has no `libsigrokdecode` or `libpython`
   dependencies, transitive or otherwise.** The shim has three jobs:

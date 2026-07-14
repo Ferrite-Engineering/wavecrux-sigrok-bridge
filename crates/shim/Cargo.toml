@@ -9,7 +9,13 @@ authors.workspace = true
 description = "Phase 4.1 plugin: a thin C-ABI shim that spawns the WaveCrux SigRok bridge subprocess and forwards JSON-IPC."
 
 [lib]
-name = "wavecrux_sigrok_bridge"
+# Must stay distinct from the `wavecrux-sigrok-bridge` bin target: on
+# Windows both would otherwise emit `wavecrux_sigrok_bridge.pdb` into
+# target/*/deps, and the two parallel link.exe jobs race on that file
+# (fatal LNK1201). The artifact is libwavecrux_sigrok_bridge_shim.{so,dylib}
+# / wavecrux_sigrok_bridge_shim.dll; the WaveCrux loader discovers
+# plugins by extension, not filename, so the rename is presentational.
+name = "wavecrux_sigrok_bridge_shim"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

@@ -48,7 +48,7 @@ to a human reviewer rather than proceed.
 Two cooperating Rust binaries:
 
 * `crates/shim` — Rust `cdylib`. Compiled to
-  `libwavecrux_sigrok_bridge.{so,dylib,dll}`. Implements the C ABI
+  `libwavecrux_sigrok_bridge_shim.{so,dylib,dll}`. Implements the C ABI
   declared in WaveCrux's `wavecrux/include/wavecrux_decoder.h`. **Zero
   GPL dependencies.** Spawns the bridge subprocess and translates
   WaveCrux's `feed`/`flush`/`destroy` callbacks into JSON-IPC requests.

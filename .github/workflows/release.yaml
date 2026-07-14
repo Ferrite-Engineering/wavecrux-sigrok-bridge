@@ -4,7 +4,7 @@ name: release
 # Release on tag push.
 #
 # The release archive contains:
-#   - libwavecrux_sigrok_bridge.{so,dylib,dll}  (the shim)
+#   - libwavecrux_sigrok_bridge_shim.{so,dylib,dll}  (the shim)
 #   - wavecrux-sigrok-bridge[.exe]              (the subprocess)
 #   - README.md, LICENSE, INSTALL.md
 #   - SHA256SUMS
@@ -73,7 +73,7 @@ jobs:
 
       - name: Verify license isolation (POSIX)
         if: matrix.target.os != 'windows'
-        run: bash tool/verify_isolation.sh target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge${{ matrix.target.os == 'macos' && '.dylib' || '.so' }}
+        run: bash tool/verify_isolation.sh target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim${{ matrix.target.os == 'macos' && '.dylib' || '.so' }}
 
       - name: Ad-hoc codesign macOS binaries
         if: matrix.target.os == 'macos'
@@ -87,11 +87,11 @@ jobs:
           # For full notarized distribution a Developer ID certificate and
           # Apple notarization service submission are needed (post-beta).
           codesign --sign - --force \
-            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge.dylib
+            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.dylib
           codesign --sign - --force \
             target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
           codesign --verify \
-            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge.dylib
+            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.dylib
           codesign --verify \
             target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
 
@@ -106,7 +106,7 @@ jobs:
           cp README.md LICENSE NOTICES CONTRIBUTING.md "$stage/"
           cp -r docs "$stage/docs"
           if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            cp target/${{ matrix.target.triple }}/release/wavecrux_sigrok_bridge.dll "$stage/"
+            cp target/${{ matrix.target.triple }}/release/wavecrux_sigrok_bridge_shim.dll "$stage/"
             cp target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge.exe "$stage/"
             (cd "$(dirname "$stage")" && 7z a -tzip "${tag}.zip" "${tag}")
             mv "$(dirname "$stage")/${tag}.zip" .
@@ -114,7 +114,7 @@ jobs:
           else
             ext="so"
             [[ "${{ matrix.target.os }}" == "macos" ]] && ext="dylib"
-            cp target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge.${ext} "$stage/"
+            cp target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.${ext} "$stage/"
             cp target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge "$stage/"
             tar -czf "${tag}.tar.gz" -C "$(dirname "$stage")" "${tag}"
             shasum -a 256 "${tag}.tar.gz" > "${tag}.tar.gz.sha256"

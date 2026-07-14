@@ -1,6 +1,7 @@
 //! WaveCrux SigRok bridge shim.
 //!
-//! This crate compiles to `libwavecrux_sigrok_bridge.{so,dylib,dll}` and
+//! This crate compiles to `libwavecrux_sigrok_bridge_shim.{so,dylib}`
+//! (`wavecrux_sigrok_bridge_shim.dll` on Windows) and
 //! is dropped into WaveCrux's per-user plugin directory. From WaveCrux's
 //! point of view this is a normal Phase 4.1 native plugin: it exports
 //! `wavecrux_decoder_abi_version` and `wavecrux_decoder_register`, then

@@ -29,7 +29,7 @@ the [README](README.md#what-this-is)):
 
 | Binary | File | Links GPL code? |
 |---|---|---|
-| **Shim** | `libwavecrux_sigrok_bridge.{so,dylib,dll}` | **No.** Pure Rust; only spawns the bridge and exchanges JSON over a pipe. |
+| **Shim** | `libwavecrux_sigrok_bridge_shim.{so,dylib,dll}` | **No.** Pure Rust; only spawns the bridge and exchanges JSON over a pipe. |
 | **Bridge** | `wavecrux-sigrok-bridge[.exe]` | **Yes.** Hosts `libsigrokdecode` + embedded Python. Runs as a subprocess; WaveCrux never loads it into its own address space. |
 
 ### Two build flavors: mock vs. real
@@ -81,7 +81,7 @@ cargo build --release --workspace
 cargo test  --workspace
 ```
 
-If that succeeds you have a working `libwavecrux_sigrok_bridge.dylib`
+If that succeeds you have a working `libwavecrux_sigrok_bridge_shim.dylib`
 (/`.so`/`.dll`) and `wavecrux-sigrok-bridge` binary under
 `target/release/`, advertising the five mock decoders. Now add the real
 backend.
@@ -187,7 +187,7 @@ cargo build --release --workspace --features sigrok
 
 This produces, under `target/release/`:
 
-* `libwavecrux_sigrok_bridge.{dylib,so,dll}` — the shim
+* `libwavecrux_sigrok_bridge_shim.{dylib,so,dll}` — the shim
 * `wavecrux-sigrok-bridge[.exe]` — the bridge (now carrying real
   libsigrokdecode)
 
@@ -226,11 +226,11 @@ as a sibling — see [README §3](README.md#3-make-the-bridge-subprocess-discove
 # macOS example — adjust DEST to the path the "Open plugin directory" button revealed
 DEST="$HOME/Library/Application Support/com.ferriteengineering.wavecruxPro/wavecrux/decoders"
 mkdir -p "$DEST"
-cp target/release/libwavecrux_sigrok_bridge.dylib "$DEST/"
+cp target/release/libwavecrux_sigrok_bridge_shim.dylib "$DEST/"
 cp target/release/wavecrux-sigrok-bridge          "$DEST/"
 ```
 
-(On Linux the shim is `.so`; on Windows it's `wavecrux_sigrok_bridge.dll`
+(On Linux the shim is `.so`; on Windows it's `wavecrux_sigrok_bridge_shim.dll`
 plus `wavecrux-sigrok-bridge.exe`, and you must also place
 `libsigrokdecode`'s DLLs + the Python runtime alongside the bridge — see
 [`docs/INSTALL.md`](docs/INSTALL.md), Windows section.)
@@ -243,7 +243,7 @@ unsigned, so you must ad-hoc sign both files after copying them:
 
 ```bash
 codesign --sign - --force "$DEST/wavecrux-sigrok-bridge"
-codesign --sign - --force "$DEST/libwavecrux_sigrok_bridge.dylib"
+codesign --sign - --force "$DEST/libwavecrux_sigrok_bridge_shim.dylib"
 ```
 
 `--sign -` is an *ad-hoc* signature: no Apple Developer account needed,
@@ -340,12 +340,12 @@ cargo build --release --workspace --features sigrok
 #    "Open plugin directory", then set DEST to it. Example for WaveCrux Pro:
 DEST="$HOME/Library/Application Support/com.ferriteengineering.wavecruxPro/wavecrux/decoders"
 mkdir -p "$DEST"
-cp target/release/libwavecrux_sigrok_bridge.dylib "$DEST/"
+cp target/release/libwavecrux_sigrok_bridge_shim.dylib "$DEST/"
 cp target/release/wavecrux-sigrok-bridge          "$DEST/"
 
 # 5. Ad-hoc code-sign both (required — macOS kills unsigned subprocesses)
 codesign --sign - --force "$DEST/wavecrux-sigrok-bridge"
-codesign --sign - --force "$DEST/libwavecrux_sigrok_bridge.dylib"
+codesign --sign - --force "$DEST/libwavecrux_sigrok_bridge_shim.dylib"
 
 # 6. Fully quit and relaunch WaveCrux. Settings → Decoders → Plugins should
 #    show "WaveCrux SigRok Bridge", Loaded, ABI v1.1, with the decoder count.

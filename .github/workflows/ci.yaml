@@ -62,7 +62,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $bin = "target/release/wavecrux_sigrok_bridge.dll"
+          $bin = "target/release/wavecrux_sigrok_bridge_shim.dll"
           if (-not (Test-Path $bin)) {
             Write-Error "no shim binary at $bin"
             exit 2

@@ -114,7 +114,7 @@ archives.
          target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
        codesign --sign "Developer ID Application: <Your Name> (<TEAM_ID>)" \
          --options runtime --timestamp --force \
-         target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge.dylib
+         target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.dylib
 
    - name: Notarize macOS archive
      if: matrix.target.os == 'macos'

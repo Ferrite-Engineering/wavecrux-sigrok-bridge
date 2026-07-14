@@ -32,9 +32,9 @@ else
     while IFS= read -r -d $'\0' p; do
         candidates+=("$p")
     done < <(find target/release -maxdepth 1 \
-        \( -name 'libwavecrux_sigrok_bridge.dylib' \
-        -o -name 'libwavecrux_sigrok_bridge.so' \
-        -o -name 'wavecrux_sigrok_bridge.dll' \
+        \( -name 'libwavecrux_sigrok_bridge_shim.dylib' \
+        -o -name 'libwavecrux_sigrok_bridge_shim.so' \
+        -o -name 'wavecrux_sigrok_bridge_shim.dll' \
         \) -print0 2>/dev/null || true)
 fi
 
