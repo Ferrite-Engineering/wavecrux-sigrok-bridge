@@ -12,7 +12,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.74"
 license = "GPL-3.0-or-later"
@@ -35,7 +35,7 @@ clap = { version = "4", features = ["derive"] }
 libc = "0.2"
 
 # Internal crates
-wavecrux-sigrok-bridge-ipc = { path = "crates/ipc", version = "0.1.0" }
+wavecrux-sigrok-bridge-ipc = { path = "crates/ipc", version = "0.1.1" }
 
 [profile.release]
 lto = "thin"
