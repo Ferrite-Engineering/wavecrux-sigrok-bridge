@@ -2,7 +2,7 @@ name: ci
 
 on:
   schedule:
-    - cron: '0 5 * * *'   # 05:00 UTC nightly
+    - cron: '50 3 * * *'   # nightly; staggered off the shared 05:00 slot
   workflow_dispatch:        # allow manual trigger
 
 env:
@@ -16,8 +16,50 @@ env:
   CARGO_HTTP_MULTIPLEXING: false
 
 jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Nightly no-op gate. This repo changes rarely — it went three weeks without
+  # a commit in July — but the nightly built and tested on Linux, macOS and
+  # Windows every single night regardless. A scheduled run on an untouched
+  # tree re-proves yesterday's result and bills a premium macOS runner to do
+  # it. If HEAD has not moved since the last green run of this workflow,
+  # everything downstream is skipped. Manual dispatch always proceeds.
+  # ───────────────────────────────────────────────────────────────────────────
+  changed:
+    name: Anything new since the last green run?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/ci.yaml/runs?status=success&branch=${{ github.ref_name }}&per_page=1" \
+            --jq '.workflow_runs[0].head_sha // ""' 2>/dev/null || echo "")
+          echo "last green: ${last:-<none>}"
+          echo "this run  : $GITHUB_SHA"
+          # Unknown (first run, API hiccup) means run — never skip on doubt.
+          if [ -n "$last" ] && [ "$last" = "$GITHUB_SHA" ]; then
+            echo "Unchanged since the last green run — skipping the nightly."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build_and_test:
     name: build + test (${{ matrix.os }})
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ${{ matrix.os }}
     # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
     timeout-minutes: 45
@@ -102,6 +144,8 @@ jobs:
   # `libclang`, so it is installed explicitly.
   build_sigrok_feature_linux:
     name: build with sigrok feature (linux)
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-latest
     # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
     timeout-minutes: 45
@@ -121,6 +165,8 @@ jobs:
 
   build_sigrok_feature_macos:
     name: build with sigrok feature (macos)
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: macos-14
     # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
     timeout-minutes: 45
