@@ -15,6 +15,8 @@ jobs:
   shim_isolation:
     name: shim has no GPL linkage or symbols
     runs-on: ubuntu-latest
+    # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

@@ -33,6 +33,8 @@ jobs:
   build:
     name: build (${{ matrix.target.os }} ${{ matrix.target.arch }})
     runs-on: ${{ matrix.target.runner }}
+    # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:

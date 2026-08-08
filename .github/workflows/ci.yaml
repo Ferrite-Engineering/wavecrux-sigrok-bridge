@@ -19,6 +19,8 @@ jobs:
   build_and_test:
     name: build + test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -101,6 +103,8 @@ jobs:
   build_sigrok_feature_linux:
     name: build with sigrok feature (linux)
     runs-on: ubuntu-latest
+    # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -118,6 +122,8 @@ jobs:
   build_sigrok_feature_macos:
     name: build with sigrok feature (macos)
     runs-on: macos-14
+    # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
