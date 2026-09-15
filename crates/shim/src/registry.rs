@@ -142,28 +142,8 @@ impl Registry {
             .ok_or_else(|| RegistryError::Internal(format!("unknown decoder {}", cfg.decoder_id)))?
             .clone();
 
-        // Channel binding: WaveCrux gives us {channel_name: signal_ref}
-        // (signal_ref is a string identifier scoped to the loaded VCD).
-        // We translate that into per-channel bit-position indices in
-        // the sample frames the shim will emit. The loader emits all
-        // bound signals in one packed bit array per `WcSample`, in
-        // declaration order from the manifest's `signals` list. The
-        // shim assigns 0..N indices in that same order.
-        let mut channels = std::collections::BTreeMap::new();
-        for (idx, c) in manifest.channels.iter().enumerate() {
-            // Optional channel left unbound is allowed; required one is
-            // not. The WaveCrux loader has already validated the
-            // required-channel rule before reaching us, but we double-
-            // check defensively.
-            if cfg.signal_bindings.contains_key(&c.name) {
-                channels.insert(c.name.clone(), idx as u32);
-            } else if c.required {
-                return Err(RegistryError::Internal(format!(
-                    "required channel {} unbound",
-                    c.name
-                )));
-            }
-        }
+        let channels = channel_bit_positions(&manifest, &cfg.signal_bindings)?;
+        let options = coerce_float_options(&manifest, cfg.options);
 
         // We need a mutable borrow on the supervisor; since this method
         // takes &self, the supervisor lives behind a Mutex elsewhere.
@@ -175,7 +155,7 @@ impl Registry {
         let session_id = shared.create_session_blocking(
             cfg.decoder_id.clone(),
             channels,
-            cfg.options.clone(),
+            options.clone(),
             cfg.xz_policy,
         )?;
 
@@ -183,12 +163,69 @@ impl Registry {
             session_id,
             manifest,
             inbox: Mutex::new(VecDeque::new()),
-            options: cfg.options,
+            options,
             xz_policy: cfg.xz_policy,
             failed: std::sync::atomic::AtomicBool::new(false),
             emitted: Mutex::new(Vec::new()),
         }))
     }
+}
+
+/// Turn typed-in values of float options back into numbers.
+///
+/// WaveCrux has no float parameter kind, so the manifest offers float
+/// options as strings and a value the user edits arrives as text.
+/// libsigrokdecode rejects an option whose type differs from its
+/// default's, which would fail the whole instance.
+fn coerce_float_options(
+    manifest: &DecoderManifest,
+    mut options: serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Map<String, serde_json::Value> {
+    for o in manifest
+        .options
+        .iter()
+        .filter(|o| o.kind == wavecrux_sigrok_bridge_ipc::OptionKind::Float)
+    {
+        let parsed = options
+            .get(&o.name)
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.trim().parse::<f64>().ok())
+            .and_then(serde_json::Number::from_f64);
+        if let Some(n) = parsed {
+            options.insert(o.name.clone(), serde_json::Value::Number(n));
+        }
+    }
+    options
+}
+
+/// Map each bound channel to its bit position in the loader's samples.
+///
+/// WaveCrux gives us `{channel_name: signal_ref}`. Its loader packs only
+/// the bound signals into each `WcSample`: the manifest's `signals`
+/// (required channels) first, then its `optional_signals`, each group in
+/// declaration order, with no gap for an unbound optional channel. The
+/// positions follow that same order. A required channel left unbound is
+/// an error; the loader validates this first, so this is a second check.
+fn channel_bit_positions(
+    manifest: &DecoderManifest,
+    bindings: &std::collections::BTreeMap<String, String>,
+) -> Result<std::collections::BTreeMap<String, u32>, RegistryError> {
+    let mut channels = std::collections::BTreeMap::new();
+    let mut next = 0u32;
+    for required in [true, false] {
+        for c in manifest.channels.iter().filter(|c| c.required == required) {
+            if bindings.contains_key(&c.name) {
+                channels.insert(c.name.clone(), next);
+                next += 1;
+            } else if c.required {
+                return Err(RegistryError::Internal(format!(
+                    "required channel {} unbound",
+                    c.name
+                )));
+            }
+        }
+    }
+    Ok(channels)
 }
 
 /// WaveCrux's loader emits this exact JSON shape into `config_json` for
@@ -580,6 +617,75 @@ mod tests {
         let cfg: WaveCruxInstanceConfig = serde_json::from_str(json).unwrap();
         assert_eq!(cfg.options.get("baudrate").unwrap(), 9600);
         assert_eq!(cfg.xz_policy, XzPolicy::CoerceLast);
+    }
+
+    fn channel(name: &str, required: bool) -> wavecrux_sigrok_bridge_ipc::DecoderChannel {
+        wavecrux_sigrok_bridge_ipc::DecoderChannel {
+            name: name.into(),
+            description: String::new(),
+            required,
+        }
+    }
+
+    #[test]
+    fn bit_positions_follow_the_loaders_packing_order() {
+        // Declared optional-first to prove required channels still pack
+        // first, and an unbound optional channel leaves no gap.
+        let manifest = DecoderManifest {
+            id: "sigrok.uart".into(),
+            display_name: "UART".into(),
+            description: String::new(),
+            channels: vec![
+                channel("rx", false),
+                channel("clk", true),
+                channel("tx", false),
+            ],
+            options: vec![],
+            annotations: vec![],
+            tags: vec![],
+        };
+        let bindings: std::collections::BTreeMap<String, String> = [
+            ("clk".to_string(), "top.clk".to_string()),
+            ("tx".to_string(), "top.tx".to_string()),
+        ]
+        .into();
+        let positions = channel_bit_positions(&manifest, &bindings).unwrap();
+        assert_eq!(positions.get("clk"), Some(&0));
+        assert_eq!(positions.get("tx"), Some(&1));
+        assert_eq!(positions.get("rx"), None);
+
+        let unbound_required: std::collections::BTreeMap<String, String> =
+            [("tx".to_string(), "top.tx".to_string())].into();
+        assert!(channel_bit_positions(&manifest, &unbound_required).is_err());
+    }
+
+    #[test]
+    fn float_options_typed_as_text_become_numbers() {
+        use wavecrux_sigrok_bridge_ipc::{DecoderOption, OptionKind};
+        let option = |name: &str, kind| DecoderOption {
+            name: name.into(),
+            description: String::new(),
+            kind,
+            default: serde_json::Value::Null,
+            choices: vec![],
+        };
+        let manifest = DecoderManifest {
+            id: "sigrok.x".into(),
+            display_name: "X".into(),
+            description: String::new(),
+            channels: vec![],
+            options: vec![
+                option("threshold", OptionKind::Float),
+                option("label", OptionKind::String),
+            ],
+            annotations: vec![],
+            tags: vec![],
+        };
+        let options: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(r#"{"threshold":" 1.5","label":"2.5"}"#).unwrap();
+        let coerced = coerce_float_options(&manifest, options);
+        assert_eq!(coerced["threshold"], serde_json::json!(1.5));
+        assert_eq!(coerced["label"], serde_json::json!("2.5"));
     }
 
     fn annotation(label: &str) -> AnnotationEvent {

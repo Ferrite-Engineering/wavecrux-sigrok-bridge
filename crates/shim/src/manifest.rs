@@ -18,18 +18,24 @@ pub(crate) fn build_manifest_json(m: &DecoderManifest) -> String {
          WaveCrux SigRok bridge plugin. https://sigrok.org",
         m.description
     );
-    let signals: Vec<Value> = m
-        .channels
-        .iter()
-        .map(|c| {
-            json!({
-                "name": c.name,
-                "description": c.description,
-                "optional": !c.required,
-                "bit_width": 1,
+    // WaveCrux reads required channels from `signals` and optional ones
+    // from `optional_signals`; a per-entry flag is not part of its
+    // manifest format.
+    let signal_entries = |required: bool| -> Vec<Value> {
+        m.channels
+            .iter()
+            .filter(|c| c.required == required)
+            .map(|c| {
+                json!({
+                    "name": c.name,
+                    "description": c.description,
+                    "bit_width": 1,
+                })
             })
-        })
-        .collect();
+            .collect()
+    };
+    let signals = signal_entries(true);
+    let optional_signals = signal_entries(false);
     let parameters: Vec<Value> = m
         .options
         .iter()
@@ -45,12 +51,23 @@ pub(crate) fn build_manifest_json(m: &DecoderManifest) -> String {
                 OptionKind::Enum => "enumeration",
                 OptionKind::String => "string",
             };
+            // WaveCrux fills an enumeration's picker from `enum_values`.
+            let enum_values: Vec<String> = o
+                .choices
+                .iter()
+                .map(|v| {
+                    v.as_str()
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| v.to_string())
+                })
+                .collect();
             json!({
                 "name": o.name,
                 "description": o.description,
                 "kind": kind,
                 "default": o.default,
                 "choices": o.choices,
+                "enum_values": enum_values,
             })
         })
         .collect();
@@ -62,6 +79,7 @@ pub(crate) fn build_manifest_json(m: &DecoderManifest) -> String {
         "license": "GPL-3.0-or-later",
         "source": "sigrok",
         "signals": signals,
+        "optional_signals": optional_signals,
         "parameters": parameters,
         "annotations": m.annotations.iter().map(|a| json!({
             "id": a.id,
@@ -130,5 +148,49 @@ mod tests {
         assert_eq!(params.len(), 1);
         assert_eq!(params[0]["name"], "baudrate");
         assert_eq!(params[0]["kind"], "integer");
+    }
+
+    #[test]
+    fn manifest_uses_wavecrux_keys_for_optional_channels_and_enum_values() {
+        let m = DecoderManifest {
+            id: "sigrok.pwm".into(),
+            display_name: "PWM".into(),
+            description: "Pulse-width modulation analyzer.".into(),
+            channels: vec![
+                DecoderChannel {
+                    name: "data".into(),
+                    description: "Signal".into(),
+                    required: true,
+                },
+                DecoderChannel {
+                    name: "clk".into(),
+                    description: "Clock".into(),
+                    required: false,
+                },
+            ],
+            options: vec![DecoderOption {
+                name: "polarity".into(),
+                description: "Active level".into(),
+                kind: OptionKind::Enum,
+                default: serde_json::json!("active-high"),
+                choices: vec![
+                    serde_json::json!("active-high"),
+                    serde_json::json!("active-low"),
+                ],
+            }],
+            annotations: vec![],
+            tags: vec![],
+        };
+        let v: serde_json::Value = serde_json::from_str(&build_manifest_json(&m)).unwrap();
+        let signals = v["signals"].as_array().unwrap();
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0]["name"], "data");
+        let optional = v["optional_signals"].as_array().unwrap();
+        assert_eq!(optional.len(), 1);
+        assert_eq!(optional[0]["name"], "clk");
+        assert_eq!(
+            v["parameters"][0]["enum_values"],
+            serde_json::json!(["active-high", "active-low"])
+        );
     }
 }
