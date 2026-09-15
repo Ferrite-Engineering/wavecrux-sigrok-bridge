@@ -243,6 +243,7 @@ mod callbacks {
                 Ok(written) => {
                     unsafe { write_transactions(out, &written) };
                     unsafe { *inout_count = written.len() };
+                    inst.retain_emitted(written);
                     WC_DECODER_OK
                 }
                 Err(crate::registry::FeedError::NeedsMoreSlots(n)) => {
@@ -270,6 +271,7 @@ mod callbacks {
                 Ok(written) => {
                     unsafe { write_transactions(out, &written) };
                     unsafe { *inout_count = written.len() };
+                    inst.retain_emitted(written);
                     WC_DECODER_OK
                 }
                 Err(crate::registry::FeedError::NeedsMoreSlots(n)) => {

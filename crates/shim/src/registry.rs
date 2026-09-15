@@ -186,6 +186,7 @@ impl Registry {
             options: cfg.options,
             xz_policy: cfg.xz_policy,
             failed: std::sync::atomic::AtomicBool::new(false),
+            emitted: Mutex::new(Vec::new()),
         }))
     }
 }
@@ -236,9 +237,22 @@ pub(crate) struct Instance {
     #[allow(dead_code)]
     xz_policy: XzPolicy,
     failed: std::sync::atomic::AtomicBool,
+    /// The transactions handed to the loader by the most recent `feed`
+    /// or `flush`. `wavecrux_decoder.h` requires their `label` and
+    /// `fields_json` strings to stay valid until the next call on the
+    /// handle, so they are parked here rather than dropped on return.
+    emitted: Mutex<Vec<OwnedTransaction>>,
 }
 
 impl Instance {
+    /// Keep `txns` alive until the next call on this handle, releasing
+    /// the batch the previous call handed out.
+    pub(crate) fn retain_emitted(&self, txns: Vec<OwnedTransaction>) {
+        if let Ok(mut emitted) = self.emitted.lock() {
+            *emitted = txns;
+        }
+    }
+
     /// Reinterpret a raw `WcDecoderHandle` as `&Instance`. Safe iff the
     /// handle came from `create_instance` and has not been destroyed.
     pub(crate) unsafe fn borrow<'a>(handle: *mut c_void) -> &'a Instance {
@@ -566,5 +580,51 @@ mod tests {
         let cfg: WaveCruxInstanceConfig = serde_json::from_str(json).unwrap();
         assert_eq!(cfg.options.get("baudrate").unwrap(), 9600);
         assert_eq!(cfg.xz_policy, XzPolicy::CoerceLast);
+    }
+
+    fn annotation(label: &str) -> AnnotationEvent {
+        AnnotationEvent {
+            session: "s1".into(),
+            start_fs: 0,
+            end_fs: 1,
+            ann_class: 0,
+            label: label.into(),
+            fields: serde_json::Map::new(),
+            is_error: false,
+        }
+    }
+
+    #[test]
+    fn emitted_strings_outlive_the_call_that_handed_them_out() {
+        let inst = Instance {
+            session_id: "s1".into(),
+            manifest: DecoderManifest {
+                id: "sigrok.pwm".into(),
+                display_name: "PWM".into(),
+                description: String::new(),
+                channels: vec![],
+                options: vec![],
+                annotations: vec![],
+                tags: vec![],
+            },
+            inbox: Mutex::new(VecDeque::new()),
+            options: serde_json::Map::new(),
+            xz_policy: XzPolicy::Glitch,
+            failed: std::sync::atomic::AtomicBool::new(false),
+            emitted: Mutex::new(Vec::new()),
+        };
+
+        let first = vec![OwnedTransaction::from_annotation(&annotation("duty=25.0%"))];
+        let view = first[0].as_c_view();
+        inst.retain_emitted(first);
+        // SAFETY: the instance owns the batch, so the view's pointers are
+        // still live — exactly what the loader relies on after `feed`.
+        let label = unsafe { std::ffi::CStr::from_ptr(view.label) };
+        let fields = unsafe { std::ffi::CStr::from_ptr(view.fields_json) };
+        assert_eq!(label.to_str().unwrap(), "duty=25.0%");
+        assert_eq!(fields.to_str().unwrap(), "{}");
+
+        inst.retain_emitted(vec![OwnedTransaction::from_annotation(&annotation("next"))]);
+        assert_eq!(inst.emitted.lock().unwrap().len(), 1);
     }
 }
