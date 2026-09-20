@@ -20,7 +20,7 @@ you **distribute the binary**, and it runs to **everyone who can obtain that
 binary**. Because the bridge is fully isolated in this repository — its own
 license, its own process boundary, no GPL code in WaveCrux open-core or Pro —
 that obligation is **contained entirely to this repo**. Making this repo's
-source available does **not** require WaveCrux open-core or `wavecrux-pro` to be
+source available does **not** require the WaveCrux open core or the Pro overlay to be
 source-available, and it does not affect their beta closed-source posture. This
 isolation is the whole point of the separate-repo + subprocess design.
 

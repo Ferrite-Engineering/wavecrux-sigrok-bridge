@@ -2,11 +2,11 @@
 
 ## Why this repo exists at all
 
-The WaveCrux project plan calls for exposing the 130+ SigRok
+WaveCrux aims to expose the 130+ SigRok
 community-maintained protocol decoders to WaveCrux users without
 contaminating WaveCrux's non-GPL license boundary. `libsigrokdecode`
 and the SigRok decoders are GPLv3+; WaveCrux's open-core repo is
-Apache 2.0 (post-beta) and the closed-source `wavecrux-pro` overlay
+Apache 2.0 (post-beta) and the closed-source Pro overlay
 ships under a commercial license. Linking GPL code into either of those
 would force them under GPL.
 
@@ -38,7 +38,7 @@ mechanically enforced by `tool/verify_isolation.sh` in the
 │                                                            │
 │   ┌──────────────────────────────┐                         │
 │   │ FfiDecoderLoader             │                         │
-│   │ (open-core Phase 4.1 plugin   │                         │
+│   │ (open-core native plugin      │                         │
 │   │ system, dart:ffi)             │                         │
 │   └──────────────┬───────────────┘                         │
 │                  │ wavecrux_decoder.h (C ABI)              │

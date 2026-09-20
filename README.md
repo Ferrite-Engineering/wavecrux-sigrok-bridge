@@ -17,14 +17,14 @@ libraries must be GPLv3+ too. The bridge is deliberately distributed as a
 below.
 
 WaveCrux itself is *not* GPL. WaveCrux's open-core repo is published under
-Apache 2.0 (post-beta), and the closed-source `wavecrux-pro` overlay carries
-its own commercial license. Neither WaveCrux repo links any GPL code, and
+Apache 2.0 (post-beta), and the closed-source Pro overlay carries
+its own commercial license. Neither links any GPL code, and
 this plugin is the only piece of the WaveCrux ecosystem that does.
 
 ## What this is
 
 The bridge is an **opt-in plugin** for WaveCrux's user-contributed decoder
-plugin loader (Phase 4.1 of the WaveCrux project plan). When installed, it
+plugin loader. When installed, it
 exposes the 130+ protocol decoders maintained by the SigRok community —
 1-Wire, JTAG, PWM, DMX512, Modbus, USB low/full speed, CAN, I²S, and
 many more — through WaveCrux's standard decoder picker and transaction
@@ -50,7 +50,7 @@ Every architectural decision in this repo preserves these four invariants.
 Any change that risks any of them is rejected at code review:
 
 1. **Separate repo.** This repository is never a Git submodule of
-   `wavecrux/wavecrux` or `wavecrux/wavecrux-pro`.
+   the WaveCrux open core or of the Pro overlay that builds on it.
 2. **Process boundary.** The shim never `dlopen`s, statically links, or
    otherwise loads `libsigrokdecode` or `libpython` into its own address
    space. Communication with libsigrokdecode happens exclusively via

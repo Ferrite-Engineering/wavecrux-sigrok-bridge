@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Phase 4.1 plugin: a thin C-ABI shim that spawns the WaveCrux SigRok bridge subprocess and forwards JSON-IPC."
+description = "A thin C-ABI shim that spawns the WaveCrux SigRok bridge subprocess and forwards JSON-IPC."
 
 [lib]
 # Must stay distinct from the `wavecrux-sigrok-bridge` bin target: on

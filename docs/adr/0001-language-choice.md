@@ -32,7 +32,7 @@ above all else.
 single Cargo workspace.
 
 * `crates/ipc` — wire-format types and framing codec.
-* `crates/shim` — the Phase 4.1 plugin (`cdylib`).
+* `crates/shim` — the native decoder plugin (`cdylib`).
 * `crates/bridge` — the subprocess.
 
 For the bridge subprocess, libsigrokdecode is bound through `bindgen`

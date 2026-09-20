@@ -14,7 +14,8 @@ shim that does not directly link those libraries, is published under
 GPLv3+ for clarity and audit consistency.
 
 WaveCrux itself is not GPL. WaveCrux's open-core repo is Apache 2.0
-post-beta, and `wavecrux-pro` carries a separate commercial license. The
+post-beta, and the closed-source Pro overlay carries a separate
+commercial license. The
 non-GPL boundary is preserved by the four license-isolation invariants
 below — they are non-negotiable.
 
@@ -24,8 +25,8 @@ These four invariants are the architectural reason the WaveCrux project
 can offer the SigRok decoder set without GPL contamination of WaveCrux
 core. Any change that risks any of them is a code-review-blocking defect:
 
-1. **Separate repo.** This repository is never a Git submodule of
-   `wavecrux/wavecrux` or `wavecrux/wavecrux-pro`.
+1. **Separate repo.** This repository is never a Git submodule of the
+   WaveCrux open core or of the Pro overlay that builds on it.
 2. **Process boundary.** The shim never `dlopen`s, statically links, or
    otherwise loads `libsigrokdecode` or `libpython` into the WaveCrux
    process. Communication is exclusively spawn-subprocess + JSON-over-pipe.
@@ -154,25 +155,24 @@ wavecrux-sigrok-bridge/
 
 ## Cross-repo touchpoints
 
-The bridge is consumed by WaveCrux through the existing Phase 4.1 plugin
-loader (`wavecrux/lib/services/decoders/ffi/`). The bridge does not require
-any code changes in WaveCrux to operate.
+The bridge is consumed by WaveCrux through its user-contributed decoder
+plugin loader (`wavecrux/lib/services/decoders/ffi/`). The bridge does not
+require any code changes in WaveCrux to operate.
 
 The WaveCrux repos do gain three additions when this bridge ships its
 first release:
 
-1. `wavecrux/verification/VERIFICATION_GUIDE.md` — a sub-section under
-   the Phase 4.1 plugin loader covering the bridge install walkthrough
-   and the five reference-decoder verification scenarios.
+1. `wavecrux/verification/VERIFICATION_GUIDE.md` — a sub-section under the
+   plugin loader covering the bridge install walkthrough and the five
+   reference-decoder verification scenarios.
 2. `wavecrux/verification/VERIFICATION_CHECKLIST.md` — matching bullet
    group.
 3. `wavecrux/test/services/decoders/ffi/sigrok_bridge_smoke_test.dart` —
    a smoke test gated on the bridge being installed; skipped on CI
    machines without it.
 
-The corresponding checkbox in `wavecrux-pro/docs/PROJECT_PLAN.md` § Phase
-4.3 P0 is flipped to `[x]` in the same change set that publishes the
-first bridge release.
+WaveCrux's own release tracking is updated in the same change set that
+publishes the first bridge release.
 
 ## What this repo is not
 

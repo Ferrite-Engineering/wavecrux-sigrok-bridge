@@ -3,7 +3,7 @@
 //! This crate compiles to `libwavecrux_sigrok_bridge_shim.{so,dylib}`
 //! (`wavecrux_sigrok_bridge_shim.dll` on Windows) and
 //! is dropped into WaveCrux's per-user plugin directory. From WaveCrux's
-//! point of view this is a normal Phase 4.1 native plugin: it exports
+//! point of view this is a normal native decoder plugin: it exports
 //! `wavecrux_decoder_abi_version` and `wavecrux_decoder_register`, then
 //! responds to lifecycle callbacks defined in
 //! `crates/shim/include/wavecrux_decoder.h`.

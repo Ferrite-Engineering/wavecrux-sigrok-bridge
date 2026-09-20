@@ -1,0 +1,45 @@
+name: public hygiene
+
+# This repository is public, and has been since before the suite's open-core
+# flip. Its readers have this repository, the WaveCrux open core and the
+# published pages — nothing else. A doc that cites an unpublished plan, a
+# comment naming a closed repository path, or a Cargo description carrying a
+# roadmap phase number is a dead end for all of them, and a quiet disclosure
+# of how the closed half of the suite is laid out. All three were live here
+# until 2026-09-20.
+#
+# Why this is not a job in `ci.yaml`: that workflow is deliberately nightly
+# and manual only, with a three-OS matrix and a 45-minute cap. A leak that
+# waits until 03:50 the next morning to be noticed has already been pushed,
+# and on a public repository pushed means published. This runs on the push
+# itself, on one runner, in seconds.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-private-references:
+    name: No references to anything a reader cannot open
+    runs-on: ubuntu-latest
+    # Cost guardrail: no job may run unbounded. This one is a regex sweep over
+    # ~50 tracked files and finishes in under a second.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The script carries its own rule self-tests: planted samples that must
+      # still match, and public phrasings that must still be allowed. A rule
+      # that rots into one matching nothing fails the run rather than passing
+      # silently forever.
+      - name: Scan every tracked file
+        run: ./tool/check-no-private-references.py

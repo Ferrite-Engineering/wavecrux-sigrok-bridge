@@ -9,7 +9,7 @@ and Windows alongside WaveCrux on the same machine.
 
 | Requirement | Why |
 |---|---|
-| WaveCrux ≥ X.Y (Phase 4.1 plugin loader) | The bridge plugs into the WaveCrux user-contributed decoder loader. |
+| WaveCrux ≥ X.Y (with the plugin loader) | The bridge plugs into the WaveCrux user-contributed decoder loader. |
 | Python 3.10 or later, accessible via the system | The bridge subprocess embeds Python at runtime. Linux/macOS use the system or Homebrew Python. (The Windows release archive currently ships the mock backend, which embeds no Python — see the Windows note below.) |
 | `libsigrokdecode` runtime + the SigRok decoder set | The real-backend subprocess loads these on startup (Linux/macOS release archives). See platform-specific instructions below. |
 

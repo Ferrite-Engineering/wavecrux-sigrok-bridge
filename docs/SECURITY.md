@@ -17,9 +17,9 @@ runtime.
 
 ## Trust model
 
-WaveCrux's user-contributed decoder plugin loader (Phase 4.1) treats
-every plugin as **fully trusted user code**. From `wavecrux/CLAUDE.md`
-and the project plan §4.2.7:
+WaveCrux's user-contributed decoder plugin loader treats
+every plugin as **fully trusted user code**. WaveCrux's own documentation
+states the rule this way:
 
 > A plugin is loaded with the user's privileges and is trusted in the
 > same way an arbitrary `.so` from a personal toolchain would be.
