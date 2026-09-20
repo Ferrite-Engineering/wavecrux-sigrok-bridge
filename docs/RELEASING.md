@@ -82,67 +82,73 @@ byte. An ad-hoc signature satisfies the kernel check; a Developer ID
 signature + notarization additionally satisfies Gatekeeper for downloaded
 archives.
 
-### What to do before v1.0
+### Developer ID signing and notarization — IMPLEMENTED
 
-1. **Enroll in the Apple Developer Program** ($99/year) and obtain a
-   *Developer ID Application* certificate.
+`release.yaml` signs and notarizes macOS builds. Three steps run on a
+macOS runner, in order:
 
-2. **Export the certificate** as a `.p12` and add these secrets to the
-   `wavecrux-sigrok-bridge` GitHub repository:
-   - `APPLE_DEVELOPER_ID_P12` — base64-encoded `.p12` file
-   - `APPLE_DEVELOPER_ID_P12_PASSWORD` — the `.p12` password
-   - `APPLE_ID` — the Apple ID used for notarization
-   - `APPLE_APP_SPECIFIC_PASSWORD` — an app-specific password for that Apple ID
-   - `APPLE_TEAM_ID` — the 10-character Apple Developer team ID
+1. **Set up macOS signing** imports the *Developer ID Application*
+   identity from secrets into a throwaway keychain. It **no-ops when
+   `MACOS_CERT_P12_BASE64` is absent**, so a fork or a secretless run
+   still produces working ad-hoc-signed binaries rather than failing.
+2. **Codesign macOS binaries** signs both the executable and the
+   `.dylib` with `--options runtime --timestamp` when the identity is
+   present, and falls back to `codesign --sign -` when it is not.
+   Hardened runtime is not optional here: notarization rejects
+   binaries without it.
+3. **Notarize macOS binaries** submits them and waits.
 
-3. **Replace the ad-hoc codesign step** in `release.yaml` with a proper
-   sign + notarize flow:
+The secrets are the **same four the four product repos use**, so one
+certificate serves the whole suite:
 
-   ```yaml
-   - name: Import Developer ID certificate
-     if: matrix.target.os == 'macos'
-     uses: apple-actions/import-codesign-certs@v3
-     with:
-       p12-file-base64: ${{ secrets.APPLE_DEVELOPER_ID_P12 }}
-       p12-password: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+- `MACOS_CERT_P12_BASE64` — base64 of the `.p12` (single line)
+- `MACOS_CERT_PASSWORD` — the `.p12` password
+- `NOTARY_APPLE_ID` — Apple ID used for notarization
+- `NOTARY_PASSWORD` — an **app-specific** password for that Apple ID
 
-   - name: Sign macOS binaries
-     if: matrix.target.os == 'macos'
-     run: |
-       codesign --sign "Developer ID Application: <Your Name> (<TEAM_ID>)" \
-         --options runtime --timestamp --force \
-         target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
-       codesign --sign "Developer ID Application: <Your Name> (<TEAM_ID>)" \
-         --options runtime --timestamp --force \
-         target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.dylib
+There is no team-id secret: `7957R7M965` (Ferrite Engineering LLC) is
+set in the workflow, matching `sign_notarize_macos.sh` in the product
+repos.
 
-   - name: Notarize macOS archive
-     if: matrix.target.os == 'macos'
-     run: |
-       # Submit archive to Apple notarization service and staple ticket.
-       xcrun notarytool submit "${tag}.tar.gz" \
-         --apple-id "${{ secrets.APPLE_ID }}" \
-         --password "${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" \
-         --team-id "${{ secrets.APPLE_TEAM_ID }}" \
-         --wait
-       # Staple requires the binary itself (archives are not stapleable),
-       # so users still need to remove quarantine after download. The
-       # notarization ticket is stored by Apple and checked online.
-   ```
+#### Why a submission-only zip, and not the published archive
 
-   > **Note on stapling:** Apple does not allow stapling a notarization
-   > ticket to a `.tar.gz` archive — only to `.app` bundles, `.pkg`
-   > installers, and `.dmg` images. Distributing as a signed `.pkg` or
-   > `.dmg` instead of `.tar.gz` would allow stapling and fully offline
-   > quarantine-free installs. For a `.tar.gz` distribution, the
-   > notarization ticket is stored by Apple and verified online at first
-   > launch; users still need to remove the quarantine flag or
-   > right-click → Open the first time.
+`notarytool` accepts `.zip`, `.pkg` and `.dmg` — **not `.tar.gz`**. An
+earlier draft of this document proposed `notarytool submit
+"${tag}.tar.gz"`, which cannot work; it would have failed on the first
+tagged release.
 
-4. **Test the signed build** on a clean Mac that has never seen the
-   bridge before. Confirm `spctl --assess --type exec wavecrux-sigrok-bridge`
-   returns `accepted` and that loading the plugin in WaveCrux shows
-   all decoders without any manual codesign or quarantine steps.
+What notarization registers with Apple is each binary's
+**code-directory hash**, not the container it arrived in. So the
+workflow zips the two signed binaries into a throwaway archive purely
+to submit them. The binaries are then notarized whichever archive
+carries them, and the published `.tar.gz`, its `.sha256`, `README.md`
+and `docs/INSTALL.md` all stay exactly as they are.
+
+> **Note on stapling:** a ticket can only be stapled to a `.app`
+> bundle, a `.pkg`, or a `.dmg` — never to a loose executable or to a
+> zip of one. Gatekeeper resolves these binaries online instead. That
+> is a deliberate trade: shipping a `.pkg` or `.dmg` would allow
+> offline stapling, at the cost of changing the artifact every
+> downstream document names. Revisit if offline installs are asked
+> for.
+
+#### Verifying a release
+
+**Still to be done once, on a clean Mac that has never seen the bridge**
+— the signing path above is wired but has not yet run against a tag.
+Download the published `.tar.gz`, unpack it, and confirm:
+
+- `codesign -dv --verbose=4 wavecrux-sigrok-bridge` names
+  `Developer ID Application: Ferrite Engineering LLC (7957R7M965)` and
+  reports `flags=0x10000(runtime)`.
+- `spctl --assess --type exec wavecrux-sigrok-bridge` returns
+  `accepted`.
+- Loading the plugin in WaveCrux shows all decoders with no manual
+  `codesign` or `xattr -d com.apple.quarantine` step.
+
+The middle one is the check that distinguishes *signed* from
+*notarized*: a Developer ID signature alone passes `codesign --verify`
+and still fails `spctl` on a quarantined download.
 
 ## Linux and Windows
 

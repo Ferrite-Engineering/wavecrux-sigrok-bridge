@@ -77,25 +77,106 @@ jobs:
         if: matrix.target.os != 'windows'
         run: bash tool/verify_isolation.sh target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim${{ matrix.target.os == 'macos' && '.dylib' || '.so' }}
 
-      - name: Ad-hoc codesign macOS binaries
+      # ── macOS: Developer ID sign + notarize ──────────────────────────────
+      # Imports the Developer ID Application identity into a throwaway keychain.
+      # Mirrors the four product repos' release-desktop.yml, including the
+      # no-op: with no cert secret the next step falls back to ad-hoc signing,
+      # which is what this workflow did before and is still correct for a
+      # fork or a secretless run.
+      - name: Set up macOS signing
+        id: macsign
         if: matrix.target.os == 'macos'
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
         run: |
-          # Ad-hoc signing satisfies macOS's CS_EXEC_SET_KILL requirement:
-          # apps built with that flag (including WaveCrux dev builds) can only
-          # spawn child processes that have a valid code signature. An ad-hoc
-          # signature has no Apple-registered identity but is cryptographically
-          # valid and passes the kernel's CS_KILL check.
-          #
-          # For full notarized distribution a Developer ID certificate and
-          # Apple notarization service submission are needed (post-beta).
-          codesign --sign - --force \
-            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.dylib
-          codesign --sign - --force \
-            target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
-          codesign --verify \
-            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.dylib
-          codesign --verify \
-            target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
+          set -euo pipefail
+          if [[ -z "${MACOS_CERT_P12_BASE64:-}" ]]; then
+            echo "No MACOS_CERT_P12_BASE64 — macOS binaries stay ad-hoc signed."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          KC="$RUNNER_TEMP/build.keychain-db"
+          KC_PW="$(openssl rand -base64 24)"
+          echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/devid.p12"
+          security create-keychain -p "$KC_PW" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KC_PW" "$KC"
+          security import "$RUNNER_TEMP/devid.p12" -k "$KC" -P "${MACOS_CERT_PASSWORD:-}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KC_PW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | sed 's/"//g')
+          rm -f "$RUNNER_TEMP/devid.p12"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Codesign macOS binaries
+        if: matrix.target.os == 'macos'
+        env:
+          TEAM_ID: '7957R7M965'
+        run: |
+          set -euo pipefail
+          dylib=target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.dylib
+          exe=target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge
+
+          # Either way the binaries end up with a cryptographically valid
+          # signature, which is what macOS's CS_EXEC_SET_KILL requires: an app
+          # built with that flag (WaveCrux included) can only spawn children
+          # that carry one. Ad-hoc satisfies the kernel but has no
+          # Apple-registered identity, so Gatekeeper blocks it on a machine
+          # that downloaded the archive — worse than the helper being absent.
+          if [[ "${{ steps.macsign.outputs.enabled }}" == "true" ]]; then
+            ID="$(security find-identity -v -p codesigning \
+              | grep 'Developer ID Application' | grep "($TEAM_ID)" \
+              | head -1 | awk '{print $2}')"
+            if [[ -z "$ID" ]]; then
+              echo "error: cert imported but no Developer ID Application for team $TEAM_ID" >&2
+              exit 1
+            fi
+            # --options runtime is required for notarization; --timestamp so
+            # the signature outlives the certificate.
+            for f in "$dylib" "$exe"; do
+              codesign --sign "$ID" --options runtime --timestamp --force "$f"
+            done
+          else
+            for f in "$dylib" "$exe"; do
+              codesign --sign - --force "$f"
+            done
+          fi
+          codesign --verify --strict "$dylib"
+          codesign --verify --strict "$exe"
+
+      - name: Notarize macOS binaries
+        if: matrix.target.os == 'macos' && steps.macsign.outputs.enabled == 'true'
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+          TEAM_ID: '7957R7M965'
+        run: |
+          set -euo pipefail
+          # A SUBMISSION-ONLY zip. notarytool accepts .zip, .pkg and .dmg and
+          # NOT .tar.gz, so the archive we ship cannot itself be submitted —
+          # docs/RELEASING.md's snippet submits the .tar.gz and would fail.
+          # What notarization actually registers with Apple is each binary's
+          # code-directory hash, so notarizing a zip of these exact signed
+          # files notarizes the files, whichever archive then carries them.
+          # That keeps the published .tar.gz, its .sha256, README.md and
+          # docs/INSTALL.md all unchanged.
+          ditto -c -k --keepParent \
+            target/${{ matrix.target.triple }}/release/wavecrux-sigrok-bridge \
+            "$RUNNER_TEMP/notarize-exe.zip"
+          ditto -c -k --keepParent \
+            target/${{ matrix.target.triple }}/release/libwavecrux_sigrok_bridge_shim.dylib \
+            "$RUNNER_TEMP/notarize-dylib.zip"
+          for z in "$RUNNER_TEMP/notarize-exe.zip" "$RUNNER_TEMP/notarize-dylib.zip"; do
+            xcrun notarytool submit "$z" \
+              --apple-id "$NOTARY_APPLE_ID" \
+              --password "$NOTARY_PASSWORD" \
+              --team-id "$TEAM_ID" \
+              --wait
+          done
+          # No `stapler staple`: a ticket can only be stapled to a .app, .pkg
+          # or .dmg, never to a loose executable or a zip of one. Gatekeeper
+          # resolves these online instead, which is why the binaries are
+          # submitted rather than the archive.
 
       - name: Stage release artifacts
         shell: bash
