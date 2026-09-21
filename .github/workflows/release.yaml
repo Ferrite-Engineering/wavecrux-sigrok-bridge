@@ -27,7 +27,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -35,6 +35,16 @@ jobs:
     runs-on: ${{ matrix.target.runner }}
     # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
     timeout-minutes: 90
+    # This job uploads to the GitHub Release, so it alone may write.
+    permissions:
+      contents: write
+    env:
+      # Every run of this workflow publishes: a tag push uploads straight to
+      # the release. So in this repository macOS signing and notarization are
+      # REQUIRED, and a missing or rotated secret fails the build instead of
+      # shipping an ad-hoc binary that Gatekeeper blocks. A fork, which has
+      # no Developer ID, keeps the ad-hoc fallback.
+      REQUIRE_SIGNING: ${{ github.repository == 'Ferrite-Engineering/wavecrux-sigrok-bridge' }}
     strategy:
       fail-fast: false
       matrix:
@@ -50,9 +60,14 @@ jobs:
           - { os: macos,   arch: arm64,   runner: macos-14,         triple: aarch64-apple-darwin,       sigrok: true }
           - { os: windows, arch: x86_64,  runner: windows-latest,   triple: x86_64-pc-windows-msvc,     sigrok: false }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The job token can write releases, and `cargo build` runs build
+          # scripts from third-party crates. Do not leave that token in
+          # .git/config; the upload step takes it as an input instead.
+          persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable branch head, 2026-09-03
         with:
           targets: ${{ matrix.target.triple }}
 
@@ -79,10 +94,8 @@ jobs:
 
       # ── macOS: Developer ID sign + notarize ──────────────────────────────
       # Imports the Developer ID Application identity into a throwaway keychain.
-      # Mirrors the four product repos' release-desktop.yml, including the
-      # no-op: with no cert secret the next step falls back to ad-hoc signing,
-      # which is what this workflow did before and is still correct for a
-      # fork or a secretless run.
+      # With no cert secret this FAILS here (REQUIRE_SIGNING, above); only a
+      # fork falls back to ad-hoc signing in the next step.
       - name: Set up macOS signing
         id: macsign
         if: matrix.target.os == 'macos'
@@ -92,7 +105,11 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${MACOS_CERT_P12_BASE64:-}" ]]; then
-            echo "No MACOS_CERT_P12_BASE64 — macOS binaries stay ad-hoc signed."
+            if [[ "$REQUIRE_SIGNING" == "true" ]]; then
+              echo "::error::No MACOS_CERT_P12_BASE64 secret — refusing to publish ad-hoc-signed macOS binaries, which Gatekeeper blocks on a customer's machine."
+              exit 1
+            fi
+            echo "No MACOS_CERT_P12_BASE64 — macOS binaries stay ad-hoc signed (fork build)."
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -136,6 +153,11 @@ jobs:
             for f in "$dylib" "$exe"; do
               codesign --sign "$ID" --options runtime --timestamp --force "$f"
             done
+          elif [[ "$REQUIRE_SIGNING" == "true" ]]; then
+            # Unreachable while the setup step fails closed; kept so the
+            # ad-hoc branch can never serve this repository's releases.
+            echo "::error::Developer ID signing is not set up — refusing to ad-hoc sign a published build." >&2
+            exit 1
           else
             for f in "$dylib" "$exe"; do
               codesign --sign - --force "$f"
@@ -152,6 +174,10 @@ jobs:
           TEAM_ID: '7957R7M965'
         run: |
           set -euo pipefail
+          if [[ -z "${NOTARY_APPLE_ID:-}" || -z "${NOTARY_PASSWORD:-}" ]]; then
+            echo "::error::NOTARY_APPLE_ID / NOTARY_PASSWORD missing — refusing to publish signed but un-notarized macOS binaries."
+            exit 1
+          fi
           # A SUBMISSION-ONLY zip. notarytool accepts .zip, .pkg and .dmg and
           # NOT .tar.gz, so the archive we ship cannot itself be submitted —
           # docs/RELEASING.md's snippet submits the .tar.gz and would fail.
@@ -204,7 +230,7 @@ jobs:
           fi
 
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: |
             wavecrux-sigrok-bridge-*.tar.gz
