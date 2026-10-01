@@ -57,7 +57,7 @@ jobs:
         target:
           - { os: linux,   arch: x86_64,  runner: ubuntu-latest,    triple: x86_64-unknown-linux-gnu,  sigrok: true }
           - { os: macos,   arch: x86_64,  runner: macos-15-intel,         triple: x86_64-apple-darwin,        sigrok: true }
-          - { os: macos,   arch: arm64,   runner: macos-14,         triple: aarch64-apple-darwin,       sigrok: true }
+          - { os: macos,   arch: arm64,   runner: macos-15,         triple: aarch64-apple-darwin,       sigrok: true }
           - { os: windows, arch: x86_64,  runner: windows-latest,   triple: x86_64-pc-windows-msvc,     sigrok: false }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
