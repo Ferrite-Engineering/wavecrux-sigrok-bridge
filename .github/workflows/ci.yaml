@@ -1,9 +1,22 @@
 name: ci
 
 on:
+  # Every push to main runs fmt, clippy and the tests on Linux. Work lands
+  # direct to main, so a gate that waits for the nightly lets a broken commit
+  # stay green for most of a day. The macOS and Windows matrix entries and the
+  # macOS sigrok-feature job stay nightly: they bill premium runners, and the
+  # nightly still catches toolchain drift on every platform.
+  push:
+    branches: [main]
   schedule:
     - cron: '50 3 * * *'   # nightly; staggered off the shared 05:00 slot
   workflow_dispatch:        # allow manual trigger
+
+# A second push supersedes the first; only the newest commit needs a verdict.
+# Scheduled and manual runs get their own group so a push never cancels them.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -46,9 +59,11 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # Push runs are Linux-only, so a green push run does not prove the
+          # full matrix: only a scheduled or manual run may skip the nightly.
           last=$(gh api \
-            "repos/${{ github.repository }}/actions/workflows/ci.yaml/runs?status=success&branch=${{ github.ref_name }}&per_page=1" \
-            --jq '.workflow_runs[0].head_sha // ""' 2>/dev/null || echo "")
+            "repos/${{ github.repository }}/actions/workflows/ci.yaml/runs?status=success&branch=${{ github.ref_name }}&per_page=30" \
+            --jq '[.workflow_runs[] | select(.event != "push")][0].head_sha // ""' 2>/dev/null || echo "")
           echo "last green: ${last:-<none>}"
           echo "this run  : $GITHUB_SHA"
           # Unknown (first run, API hiccup) means run — never skip on doubt.
@@ -69,7 +84,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14, windows-latest]
+        # Push: Linux only. Nightly and manual: all three.
+        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-14", "windows-latest"]') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -169,7 +185,8 @@ jobs:
   build_sigrok_feature_macos:
     name: build with sigrok feature (macos)
     needs: changed
-    if: needs.changed.outputs.run == 'true'
+    # Nightly and manual only; see the trigger comment at the top.
+    if: needs.changed.outputs.run == 'true' && github.event_name != 'push'
     runs-on: macos-15
     # Cost guardrail: no job may run unbounded (max observed suite-wide is 29 min).
     timeout-minutes: 45

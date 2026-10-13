@@ -8,11 +8,11 @@ name: public hygiene
 # of how the closed half of the suite is laid out. All three were live here
 # until 2026-09-20.
 #
-# Why this is not a job in `ci.yaml`: that workflow is deliberately nightly
-# and manual only, with a three-OS matrix and a 45-minute cap. A leak that
-# waits until 03:50 the next morning to be noticed has already been pushed,
-# and on a public repository pushed means published. This runs on the push
-# itself, on one runner, in seconds.
+# Why this is not a job in `ci.yaml`: that workflow compiles before it
+# reports anything, and its push run is Linux-only with a 45-minute cap. A
+# leak should be named in seconds, on its own, whatever the compiler thinks,
+# because on a public repository pushed means published. This runs on the
+# push itself, on one runner, in seconds.
 
 on:
   push:
