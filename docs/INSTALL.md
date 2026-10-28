@@ -17,8 +17,17 @@ and Windows alongside WaveCrux on the same machine.
 
 Grab the archive matching your OS+architecture from
 [GitHub Releases](https://github.com/Ferrite-Engineering/wavecrux-sigrok-bridge/releases),
-along with the matching `*.sha256` companion. Verify the checksum before
-extracting:
+along with the matching `*.sha256` companion. Release archives are built
+for Linux x86_64, macOS arm64 (Apple Silicon) and Windows x86_64.
+
+**Intel Macs:** there is no Intel macOS archive after v0.1.1. Homebrew no
+longer publishes Intel bottles for the libsigrokdecode tree, so the
+release runner could not install the runtime the bridge links against.
+On an Intel Mac, build the bridge from source (see
+[`../HOW_TO_BUILD.md`](../HOW_TO_BUILD.md)) against your own Homebrew
+`libsigrokdecode`, or open an issue if you need a prebuilt archive.
+
+Verify the checksum before extracting:
 
 ```bash
 shasum -a 256 -c wavecrux-sigrok-bridge-vX.Y.Z-<os>-<arch>.tar.gz.sha256
@@ -117,9 +126,10 @@ brew install python  # If you don't already have Python 3.10+.
 
 The bridge expects `libsigrokdecode.dylib` to be on the dynamic-loader
 path. If you installed via Homebrew on Apple Silicon, that's
-`/opt/homebrew/lib`; on Intel it's `/usr/local/lib`. Either is on the
-default loader path; if not, add it via `DYLD_LIBRARY_PATH` (note: SIP
-strips this when launching from `/Applications`).
+`/opt/homebrew/lib`; on an Intel Mac with a source-built bridge it's
+`/usr/local/lib`. Either is on the default loader path; if not, add it
+via `DYLD_LIBRARY_PATH` (note: SIP strips this when launching from
+`/Applications`).
 
 #### Windows
 

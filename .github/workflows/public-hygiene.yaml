@@ -43,3 +43,21 @@ jobs:
       # silently forever.
       - name: Scan every tracked file
         run: ./tool/check-no-private-references.py
+
+  release-targets:
+    name: README download list matches the release matrix
+    runs-on: ubuntu-latest
+    # Cost guardrail: no job may run unbounded. Two regexes over two files.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      # A user picks an archive from the README's list. A name there that
+      # release.yaml no longer builds (Intel macOS after v0.1.1) sends them
+      # looking for a file that does not exist. The script self-tests first.
+      - name: Compare README.md with release.yaml
+        run: ./tool/check-release-targets.py

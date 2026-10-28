@@ -60,8 +60,9 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-`release.yaml` fires on the tag push, builds all four platform targets
-(linux x86_64, macOS x86_64, macOS arm64, windows x86_64), ad-hoc signs
+`release.yaml` fires on the tag push, builds all three platform targets
+(linux x86_64, macOS arm64, windows x86_64; there is no Intel macOS
+target after v0.1.1, see issue #4), ad-hoc signs
 the macOS binaries, assembles archives, generates per-archive SHA256
 sidecars, and uploads everything to GitHub Releases.
 

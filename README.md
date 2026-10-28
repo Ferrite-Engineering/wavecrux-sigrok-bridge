@@ -77,10 +77,16 @@ loader is not available on iOS, Android, or web.
 Grab the archive matching your OS and architecture from
 [GitHub Releases](https://github.com/Ferrite-Engineering/wavecrux-sigrok-bridge/releases):
 
-* `wavecrux-sigrok-bridge-vX.Y.Z-macos-arm64.tar.gz`
-* `wavecrux-sigrok-bridge-vX.Y.Z-macos-x86_64.tar.gz`
+* `wavecrux-sigrok-bridge-vX.Y.Z-macos-arm64.tar.gz` (Apple Silicon)
 * `wavecrux-sigrok-bridge-vX.Y.Z-linux-x86_64.tar.gz`
 * `wavecrux-sigrok-bridge-vX.Y.Z-windows-x86_64.zip`
+
+There is no Intel macOS archive. The last one shipped with v0.1.1:
+Homebrew no longer publishes Intel bottles for the libsigrokdecode tree,
+so the release runner could not install the runtime it links against. On
+an Intel Mac you can still build the bridge from source (see
+[`HOW_TO_BUILD.md`](HOW_TO_BUILD.md)). If you need an Intel macOS
+archive, open an issue and we will look at it again.
 
 Verify against `SHA256SUMS` in the same release.
 

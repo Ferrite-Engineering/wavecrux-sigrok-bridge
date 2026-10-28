@@ -10,7 +10,7 @@ name: release
 #   - SHA256SUMS
 #
 # Backend per target:
-#   - linux (x86_64) and macOS (x86_64, arm64) ship the REAL
+#   - linux (x86_64) and macOS (arm64) ship the REAL
 #     `--features sigrok` backend: the bridge links libsigrokdecode and
 #     the Python decoder corpus dynamically, so the end user installs the
 #     runtime (`apt install libsigrokdecode4` / `brew install
@@ -19,6 +19,11 @@ name: release
 #   - windows ships the MOCK backend for now (no apt/Homebrew source for
 #     libsigrokdecode on Windows; the DLL-bundling story is unresolved).
 #     See the `sigrok: false` matrix entry and docs/INSTALL.md.
+#
+# No Intel macOS (x86_64) archive: the last one shipped with v0.1.1.
+# Homebrew has no Intel bottles for the libsigrokdecode tree, so that leg
+# built Python and its dependencies from source and never reached the
+# build. We revisit this if an Intel Mac user asks for it (issue #4).
 #
 # Tag scheme: v-MAJOR.MINOR.PATCH (matches Cargo.toml).
 
@@ -53,10 +58,10 @@ jobs:
         # (libsigrokdecode + Python + libclang). Windows stays on the
         # mock backend (`sigrok: false`). Rive has no Linux/Windows ARM
         # runtime, so WaveCrux ships no Linux/Windows ARM build and the
-        # bridge follows suit — macOS ARM (Apple Silicon) is unaffected.
+        # bridge follows suit. macOS ships Apple Silicon (arm64) only; see
+        # the header for why there is no Intel macOS leg.
         target:
           - { os: linux,   arch: x86_64,  runner: ubuntu-latest,    triple: x86_64-unknown-linux-gnu,  sigrok: true }
-          - { os: macos,   arch: x86_64,  runner: macos-15-intel,         triple: x86_64-apple-darwin,        sigrok: true }
           - { os: macos,   arch: arm64,   runner: macos-15,         triple: aarch64-apple-darwin,       sigrok: true }
           - { os: windows, arch: x86_64,  runner: windows-latest,   triple: x86_64-pc-windows-msvc,     sigrok: false }
     steps:
@@ -80,13 +85,10 @@ jobs:
             pkg-config clang libclang-dev
 
       # Bounded on its own, well under the job's cap. With bottles this takes
-      # a minute or two (macOS arm64). On the Intel runner Homebrew had no
-      # bottles for the libsigrokdecode tree on the first macos-15-intel tag
-      # run and built Python and friends from source, sitting here for the
-      # whole 90-minute job cap without reaching the build. A source build is
-      # not a release build we want anyway, so this leg now fails within 20
-      # minutes instead of 90, and the other legs (fail-fast: false) still
-      # publish. Whether the Intel target stays is tracked in issue #4.
+      # a minute or two on macOS arm64. If Homebrew ever loses the bottles and
+      # falls back to a source build (as it did on the dropped Intel runner),
+      # this step fails within 20 minutes instead of eating the 90-minute
+      # job cap, and the other legs (fail-fast: false) still publish.
       - name: Install SigRok build deps (macOS)
         if: matrix.target.os == 'macos' && matrix.target.sigrok
         timeout-minutes: 20
