@@ -79,8 +79,17 @@ jobs:
             libsigrokdecode4 libsigrokdecode-dev python3-dev \
             pkg-config clang libclang-dev
 
+      # Bounded on its own, well under the job's cap. With bottles this takes
+      # a minute or two (macOS arm64). On the Intel runner Homebrew had no
+      # bottles for the libsigrokdecode tree on the first macos-15-intel tag
+      # run and built Python and friends from source, sitting here for the
+      # whole 90-minute job cap without reaching the build. A source build is
+      # not a release build we want anyway, so this leg now fails within 20
+      # minutes instead of 90, and the other legs (fail-fast: false) still
+      # publish. Whether the Intel target stays is tracked in issue #4.
       - name: Install SigRok build deps (macOS)
         if: matrix.target.os == 'macos' && matrix.target.sigrok
+        timeout-minutes: 20
         run: |
           brew update
           brew install pkg-config libsigrokdecode
